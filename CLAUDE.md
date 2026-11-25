@@ -38,4 +38,7 @@ When the schema or the API changes, update the matching doc in the same change.
 
 ## Commands
 
-To be added once `api/` and `web/` are scaffolded.
+- `docker compose up -d` starts local PostgreSQL 18 on `localhost:5432`. The user, password and database default to `salary` / `salary` / `salary_management_development`. Override them in `.env` (see `.env.example`).
+- `docker compose down` stops it. Add `-v` to also delete the data volume.
+
+App commands will be added once `api/` and `web/` are scaffolded.

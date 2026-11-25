@@ -1,0 +1,24 @@
+# Local development services.
+# Usage: docker compose up -d   |   docker compose down   (add -v to wipe data)
+services:
+  postgres:
+    image: postgres:18
+    container_name: salary-management-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-salary}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-salary}
+      POSTGRES_DB: ${POSTGRES_DB:-salary_management_development}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # postgres:18 images keep data under /var/lib/postgresql/<major>/docker
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
