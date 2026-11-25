@@ -38,3 +38,17 @@ export interface EmployeeFilters {
   page?: number
   perPage?: number
 }
+
+/** GET /employees/:employmentId: a list row plus employment details. */
+export interface EmployeeDetail extends Employee {
+  employment: {
+    lockVersion: number
+    noticePeriodDays: number | null
+    resignationDate: string | null
+    separationType: string | null
+    separationReason: string | null
+    eligibleForRehire: boolean | null
+    assignmentEffectiveFrom: string | null
+    compensationEffectiveFrom: string | null
+  }
+}

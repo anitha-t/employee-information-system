@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { formatMoney } from '../../lib/format'
 import type { Employee } from '../../types/employee'
 import { StatusBadge } from '../ui/StatusBadge'
@@ -28,7 +29,7 @@ export function EmployeeTable({ employees, stale = false }: Props) {
             <tr key={employee.employmentId}>
               <td className="mono">{employee.employeeNumber}</td>
               <td>
-                <div>{employee.person.displayName}</div>
+                <Link to={`/employees/${employee.employmentId}`}>{employee.person.displayName}</Link>
                 {employee.person.displayName !== employee.person.fullName && (
                   <div className="muted small">{employee.person.fullName}</div>
                 )}

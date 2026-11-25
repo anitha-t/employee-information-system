@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useCurrentUser } from '../hooks/useAuth'
 import { MyInfo } from './MyInfo'
 
@@ -7,7 +8,10 @@ export function ProfilePage() {
   if (!me) return null
   return (
     <div className="page">
-      <h1>My profile</h1>
+      <div className="page-header">
+        <h1>My profile</h1>
+        <Link to="/profile/edit" className="btn btn-secondary">Edit profile</Link>
+      </div>
       <MyInfo me={me} />
     </div>
   )

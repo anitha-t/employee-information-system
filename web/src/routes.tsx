@@ -3,10 +3,13 @@ import { AuthLayout } from './components/layout/AuthLayout'
 import { RedirectIfSignedIn, RequireAuth, RequireRole } from './components/layout/guards'
 import { AppLayout } from './pages/AppLayout'
 import { DashboardPage } from './pages/DashboardPage'
+import { EmployeeDetailPage } from './pages/EmployeeDetailPage'
+import { EmployeeEditPage } from './pages/EmployeeEditPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LoginPage } from './pages/LoginPage'
 import { NewHirePage } from './pages/NewHirePage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { ProfileEditPage } from './pages/ProfileEditPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
@@ -33,7 +36,15 @@ export const routes: RouteObject[] = [
       children: [
         { path: '/dashboard', element: <DashboardPage /> },
         { path: '/profile', element: <ProfilePage /> },
-        { path: '/employees/new', element: <RequireRole role="hr"><NewHirePage /></RequireRole> },
+        { path: '/profile/edit', element: <ProfileEditPage /> },
+        {
+          element: <RequireRole role="hr" />,
+          children: [
+            { path: '/employees/new', element: <NewHirePage /> },
+            { path: '/employees/:employmentId', element: <EmployeeDetailPage /> },
+            { path: '/employees/:employmentId/edit', element: <EmployeeEditPage /> },
+          ],
+        },
       ],
     }],
   },

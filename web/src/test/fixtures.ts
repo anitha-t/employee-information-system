@@ -103,3 +103,14 @@ export const hireResponse = {
 export const apiError = (code: string, message: string, details: Record<string, string[]> = {}) => ({
   error: { code, message, details },
 })
+
+export function employeeDetail(overrides: Record<string, unknown> = {}) {
+  return {
+    ...employee({ person: { id: 'p-emp', full_name: 'Priya Sharma', display_name: 'Anu', email: 'anu@example.com' } }),
+    employment: {
+      lock_version: 0, notice_period_days: 60, resignation_date: null, separation_type: null, separation_reason: null,
+      eligible_for_rehire: null, assignment_effective_from: '2025-04-01', compensation_effective_from: '2025-04-01',
+    },
+    ...overrides,
+  }
+}

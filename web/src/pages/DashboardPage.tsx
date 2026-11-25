@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useCurrentUser } from '../hooks/useAuth'
 import { HrDashboard } from './HrDashboard'
 import { MyInfo } from './MyInfo'
@@ -16,7 +17,10 @@ export function DashboardPage() {
 
   return (
     <div className="page">
-      <h1>{greeting()}, {me.person.displayName}</h1>
+      <div className="page-header">
+        <h1>{greeting()}, {me.person.displayName}</h1>
+        <Link to="/profile/edit" className="btn btn-secondary">Edit profile</Link>
+      </div>
       <MyInfo me={me} />
     </div>
   )

@@ -58,3 +58,36 @@ export interface Profile {
   addresses: Address[]
   emergencyContacts: EmergencyContact[]
 }
+
+/** PATCH /me/profile and /people/:id/profile (docs/api-design.md §3.1). */
+export interface ProfileUpdate {
+  lockVersion: number
+  preferredName?: string | null
+  email?: string | null
+  phoneNumber?: string | null
+  // HR only:
+  firstName?: string
+  lastName?: string | null
+  dob?: string | null
+  gender?: Gender | null
+  addresses?: AddressChange[]
+  emergencyContacts?: EmergencyContactChange[]
+}
+
+/** No id: create. With id: update. With id and _destroy: remove. */
+export type AddressChange =
+  | { id: string; _destroy: true }
+  | {
+      id?: string
+      addressType: 'home' | 'mailing'
+      line1: string
+      line2: string | null
+      city: string
+      state: string | null
+      postalCode: string | null
+      countryId: string
+    }
+
+export type EmergencyContactChange =
+  | { id: string; _destroy: true }
+  | { id?: string; name: string; relationship: string | null; phoneNumber: string; isPrimary: boolean }

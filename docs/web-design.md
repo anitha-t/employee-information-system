@@ -1,8 +1,10 @@
-# Web App Design — Phase 1: sign-in, dashboards, new hire
+# Web App Design
 
-Status: **Phase 1 built** (`web/`)
+Status: **Phases 1 and 2 built** (`web/`)
 Depends on: [api-design.md](api-design.md), [AGENTS.md](../AGENTS.md) (frontend rules)
-Scope: the pages a user sees from signing in to their dashboard, plus the HR "new hire" flow.
+Scope:
+- **Phase 1:** sign-in, the dashboards and the HR "new hire" flow.
+- **Phase 2:** editing profiles, and the HR employee detail and edit pages (§5).
 
 ## 1. Pages and routes
 
@@ -14,7 +16,10 @@ Scope: the pages a user sees from signing in to their dashboard, plus the HR "ne
 | `/` | Redirects to `/dashboard` | — | — |
 | `/dashboard` | **Employee:** my info. **HR:** employee search and "New hire". | Signed in | see §3 |
 | `/profile` | My info (the employee dashboard view; HR reaches it from the user menu) | Signed in | `GET /me`, `GET /me/profile` |
+| `/profile/edit` | Edit my profile | Signed in | `GET` / `PATCH /me/profile`, `GET /countries` (§5) |
 | `/employees/new` | New hire form | HR | `POST /employment_actions` and reference data (§4) |
+| `/employees/:employmentId` | Employee detail | HR | `GET /employees/:id`, `GET /people/:personId/profile` (§5) |
+| `/employees/:employmentId/edit` | Edit an employee's profile | HR | `GET /employees/:id`, `GET` / `PATCH /people/:personId/profile` (§5) |
 | `*` | Not found | — | — |
 
 Routing rules:
@@ -23,7 +28,7 @@ Routing rules:
 - A signed-in user who opens `/login`, `/forgot-password` or `/reset-password` is redirected to `/dashboard`.
 - After sign-in: go to `next` if it is a same-app path (starts with `/`, not `//`), otherwise `/dashboard`.
 
-Out of scope for phase 1 (planned next): employee detail (`/employees/:employmentId`), editing a profile, other employment actions, reports.
+Not planned yet: employment changes after hire (promotion, transfer, salary change, separation), the audit trail, the directory and reports.
 
 ## 2. Sign-in pages
 
@@ -45,7 +50,7 @@ All three use `AuthLayout`: a centred card with the app name, no navigation.
 
 - Fields: `email_address` (required, email format) and `password` (required). Validated with Zod before submit.
 - Submit → `POST /session`. The button shows a spinner and is disabled while the request runs.
-- `201` → the browser now holds the session cookie (§6). Invalidate `["me"]` and navigate as in §1.
+- `201` → the browser now holds the session cookie (§7). Invalidate `["me"]` and navigate as in §1.
 - `401 invalid_credentials` → a form-level error: "Email or password is incorrect." The password field is cleared. Separated employees get this same message (the API doesn't distinguish them).
 - `429 rate_limited` → "Too many sign-in attempts. Try again in a few minutes."
 - Network or 5xx error → "Something went wrong. Try again."
@@ -112,7 +117,7 @@ Data: `GET /me` (employment summary) and `GET /me/profile` (contact details). Th
 | Emergency contacts | `profile.emergency_contacts[]` (primary first, as the API returns them) | "No emergency contacts yet." |
 
 - `status` renders as a `StatusBadge`: active (green), on notice (amber), separated (grey).
-- Phase 1 is read-only. Edit buttons on Contact, Addresses and Emergency contacts come in phase 2 (`PATCH /me/profile`).
+- An "Edit profile" button opens `/profile/edit` (§5.1).
 - Salary is **not** shown: `/me` has no salary, and `/me/compensations` isn't built.
 
 ### 3.2 HR dashboard: employee search and new hire
@@ -142,8 +147,8 @@ Data: `GET /employees?q=&country=&status=&employment_type=&page=&per_page=25`.
 - **Rows:**
   - Name shows `person.display_name`, with `full_name` underneath when it differs.
   - Job · Team uses `job.title` and `team.name`.
-  - Salary uses `annual_salary`, formatted in its own currency (§7).
-  - Rows aren't clickable in phase 1. They'll link to `/employees/:employmentId` once that page exists.
+  - Salary uses `annual_salary`, formatted in its own currency (§8).
+  - The name links to `/employees/:employmentId` (§5.2).
 - **Pagination:** from `meta.total_count`, 25 per page.
 - **Page states:**
   - The first load shows table skeleton rows.
@@ -223,7 +228,85 @@ Dependent fields:
 - **Cancel:** if the form has changes, ask "Discard this new hire?" before leaving.
 - Not in phase 1: rehire of an existing person (`person_id`) and `create_user` (the API doesn't build the invite yet).
 
-## 5. Components
+## 5. Profile editing and employee pages (phase 2)
+
+### 5.1 The profile form (`/profile/edit` and `/employees/:employmentId/edit`)
+
+Both pages use one `ProfileForm`. The only differences are which fields can be edited and where the form saves.
+
+| | My profile (`/profile/edit`) | Employee (`/employees/:employmentId/edit`) |
+|---|---|---|
+| Loads | `GET /me/profile` | `GET /employees/:id`, then `GET /people/:personId/profile` |
+| Saves | `PATCH /me/profile` | `PATCH /people/:personId/profile` |
+| Legal name, date of birth, gender | Editable for HR, read-only for employees ("Contact HR to change these") | Editable |
+| Afterwards | Back to `/profile`, toast "Profile saved." | Back to `/employees/:employmentId`, toast "Saved <name>'s profile." |
+
+```
+ ← My profile   Edit profile
+┌─ Personal details ──────────────────────────────────────────────────┐
+│ First name* [Priya ]  Last name [Sharma]  Preferred name [Priya ]   │
+│ Date of birth [1994-02-11]  Gender [Female ▾]                       │
+│ Personal email [priya.sharma@example.com]  Phone [+919900112233]    │
+├─ Addresses ─────────────────────────────────────────────────────────┤
+│ Type* [Home ▾]  Line 1* [12 MG Road]  Line 2 [Apartment 4C]         │
+│ City* [Bengaluru]  State [KA]  Postal code [560001]  Country* [IN ▾]│
+│                                                          [Remove]   │
+│ [+ Add address]                                                     │
+├─ Emergency contacts ────────────────────────────────────────────────┤
+│ Name* [Ravi Sharma]  Relationship [sibling]  Phone* [+9198…]        │
+│ (•) Primary contact                                      [Remove]   │
+│ [+ Add contact]                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+                                                [ Cancel ]  [ Save ]
+```
+
+Fields:
+- **Address types:** `home` or `mailing`. Required: type, line 1, city and country, with country from `GET /countries`.
+- **Emergency contacts:** name and phone are required. "Primary contact" is a radio button, so at most one contact is primary.
+- **Phone numbers:** E.164 format, e.g. `+919800000000`. The client checks the format, and so does the API.
+- **Personal email:** optional, and must be a valid address.
+
+Payload (api-design.md §3.1):
+- `lock_version` is always the value the form loaded with.
+- **Scalars:** employees send only `preferred_name`, `email` and `phone_number`. HR also send `first_name`, `last_name`, `dob` and `gender`. A field the user may not change is never sent, because the API answers `403 forbidden_fields`. Blank values are sent as `null`.
+- **Nested arrays:**
+  - Every row on screen is sent in screen order: existing rows with their `id`, new rows without one.
+  - Rows the user removed are appended afterwards as `{id, _destroy: true}`.
+  - The API keys errors by submitted position (`addresses[1].line1`). Because removed rows come last, that index is also the row's index on screen.
+
+Results:
+- **`200`:** the response is the new profile. It replaces the cached profile, and `["me"]` and `["employees"]` are invalidated (the display name may have changed). Then the user goes back.
+- **`422`:** `addresses[1].line1` maps to the field `addresses.1.line1`. Errors that don't match a field (e.g. `emergencyContacts` "can have only one primary contact") go to the summary.
+- **`409 stale_object`:** "Someone else changed this profile while you were editing." The "Reload" button refetches and resets the form, discarding these edits. Nothing was saved.
+- **`403` / `404`** (a field or nested id the user may not touch; shouldn't happen from this UI) go in the summary.
+- **Cancel** asks "Discard your changes?" when the form is dirty.
+
+### 5.2 Employee detail (`/employees/:employmentId`, HR)
+
+```
+ ← Employees
+ Priya Sharma                                        [ Edit profile ]
+ E010002 · Active · Software Engineer, Platform
+┌─ Employment ───────────────────────┐ ┌─ Pay ───────────────────────┐
+│ Legal entity  Acme India Pvt Ltd   │ │ Annual salary  ₹15,00,000   │
+│ Country       IN (INR)             │ │ Pay frequency  Monthly      │
+│ Type          Full time            │ │ Since          1 Apr 2025   │
+│ Hire date     3 Apr 2023           │ └─────────────────────────────┘
+│ Grade         G3 (since 1 Apr 2025)│
+│ Manager       Farhan Shah          │
+│ Work email    priya.sharma@acme…   │
+│ Notice period 60 days              │
+└────────────────────────────────────┘
+ Personal details · Addresses · Emergency contacts (same cards as "My info")
+```
+
+- **Data:** `GET /employees/:employmentId` for employment and pay, then `GET /people/:personId/profile` for the person cards.
+- **Separations:** separated or on-notice employees also show the resignation date, last working day, separation type and reason, and rehire eligibility.
+- **`404`** → "Employee not found." with a link back to the list.
+- The manager's name links to the manager's own page.
+- **Not here yet:** history and employment changes after hire. These come with the employment-actions UI.
+
+## 6. Components
 
 ```
 src/
@@ -232,12 +315,15 @@ src/
     DashboardPage        → EmployeeDashboard | HrDashboard
     ProfilePage          (renders MyInfo)
     NewHirePage
+    ProfileEditPage, EmployeeDetailPage, EmployeeEditPage, ProfileEditor (shared editor logic)
     NotFoundPage, ForbiddenPage
   components/
     layout/   AppShell, AuthLayout, UserMenu, RequireAuth, RequireRole
     auth/     LoginForm, ForgotPasswordForm, ResetPasswordForm
     me/       MyInfo, EmploymentSummaryCard, ContactCard, AddressList, EmergencyContactList
-    employees/EmployeeSearchBar, EmployeeFilters, EmployeeTable, EmployeeRow, EmployeePicker (async manager search)
+    employees/EmployeeSearchBar, EmployeeFilters, EmployeeTable, EmployeePicker (async manager search),
+              EmploymentCard, PayCard
+    profile/  ProfileForm, PersonalDetailsFields, AddressFields, EmergencyContactFields, profileSchema
     hire/     HireForm, PersonSection, EmploymentSection, RoleSection, PaySection, SalaryBandHint
     ui/       Button, TextField, SelectField, DateField, MoneyInput, Card, Table, Pagination,
               StatusBadge, Money, Spinner, Skeleton, ErrorState (with retry), EmptyState,
@@ -255,13 +341,16 @@ src/
 | `useMyProfile` | `["me", "profile"]` | `GET /me/profile` |
 | `useSignIn`, `useSignOut` | — | `POST` / `DELETE /session` |
 | `useRequestPasswordReset`, `useResetPassword` | — | `POST /passwords`, `PUT /passwords/:token` |
-| `useEmployees(filters)` | `["employees", filters]` | `GET /employees` |
+| `useEmployees(filters)` | `["employees", "list", filters]` | `GET /employees` |
 | `useCountries`, `useLegalEntities`, `useGrades`, `useJobs` | `["countries"]` etc. | reference data, `staleTime: 1h` |
 | `usePositions({legalEntityId, asOf})` | `["positions", {…}]` | `GET /positions` |
 | `useSalaryBand({country, gradeId, asOf})` | `["salary_bands", {…}]` | `GET /salary_bands` |
 | `useCreateHire` | — | `POST /employment_actions`. Invalidates `["employees"]` on success. |
+| `useEmployee(id)` | `["employees", "detail", id]` | `GET /employees/:id` |
+| `usePersonProfile(personId)` | `["people", personId, "profile"]` | `GET /people/:id/profile` |
+| `useUpdateProfile(target)` | — | `PATCH /me/profile` or `/people/:id/profile`. Caches the returned profile and invalidates `["me"]` and `["employees"]`. |
 
-## 6. API client and auth
+## 7. API client and auth
 
 Per AGENTS.md §4, `src/api/client.ts` is the only place that calls `fetch`. It:
 - prefixes `/api/v1` (Vite proxies `/api` to `http://localhost:3000`)
@@ -282,13 +371,13 @@ The API facts that settle AGENTS.md's `TODO(team)` items:
 - "Am I signed in?" is answered by `GET /me` (`useCurrentUser`).
 - In dev, Vite proxies `/api` to `http://localhost:3000`, so the browser sees one origin.
 
-## 7. Formatting
+## 8. Formatting
 
 - **Money:** `Intl.NumberFormat(locale, {style: "currency", currency})`, with the locale picked by currency (`INR` → `en-IN`, which groups as ₹18,50,000; `USD` → `en-US`; `AUD` → `en-AU`). The amount string is converted to a number only for display, and amounts are never added up across currencies.
 - **Dates:** ISO strings in types, formatted for display only (`1 May 2026`). Date inputs send `YYYY-MM-DD`.
 - **Enums:** a single label map (`full_time` → "Full time", `on_notice` → "On notice").
 
-## 8. Testing (AGENTS.md §9)
+## 9. Testing (AGENTS.md §9)
 
 - MSW handlers for every endpoint used, each covering success, `422` and `401`.
 - **Page tests:**

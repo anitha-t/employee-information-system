@@ -241,3 +241,13 @@ input:disabled, select:disabled { background: var(--surface-muted); color: var(-
 @media (prefers-reduced-motion: reduce) {
   .spinner, .skeleton { animation: none; }
 }
+
+/* Profile form: repeatable rows */
+.profile-form { max-width: 900px; }
+.repeat-row { border: 1px dashed var(--border); border-radius: var(--radius); padding: 0.9rem 1rem 0.25rem; margin-bottom: 1rem; }
+.repeat-row-actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: -0.25rem 0 0.75rem; }
+.repeat-row-actions .btn-ghost { margin-left: auto; color: var(--danger); }
+.form-section > .btn-secondary { margin-bottom: 1rem; }
+.inline-choice { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.9rem; }
+.inline-choice input { width: auto; min-height: auto; }
+input[readonly] { background: var(--surface-muted); color: var(--text-muted); }

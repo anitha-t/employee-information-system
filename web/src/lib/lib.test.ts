@@ -69,6 +69,17 @@ describe('applyServerErrors', () => {
     expect(rest).toEqual(['Currency must be INR'])
   })
 
+  it('maps indexed nested paths onto field-array fields', () => {
+    const setError = vi.fn()
+    const error = new ApiError(422, { error: { code: 'validation_failed', message: 'Validation failed', details: {
+      'addresses[1].line1': ["can't be blank"], 'addresses[0].country': ['must exist'],
+    } } })
+
+    applyServerErrors(error, ['addresses.1.line1', 'addresses.0.countryId'], setError)
+
+    expect(setError.mock.calls.map(([field]) => field)).toEqual(['addresses.1.line1', 'addresses.0.countryId'])
+  })
+
   it('falls back to the error message or a generic one', () => {
     expect(applyServerErrors(new ApiError(409, { error: { code: 'conflict', message: 'Conflict' } }), fields, vi.fn())).toEqual(['Conflict'])
     expect(applyServerErrors(new TypeError('offline'), fields, vi.fn())).toEqual(['Something went wrong. Try again.'])

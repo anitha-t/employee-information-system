@@ -38,6 +38,9 @@ export const LABELS = {
   payFrequency: { monthly: 'Monthly', semi_monthly: 'Twice a month', bi_weekly: 'Every two weeks', weekly: 'Weekly' },
   addressType: { home: 'Home', mailing: 'Mailing', registered: 'Registered' },
   role: { hr: 'HR', employee: 'Employee' },
+  separationType: {
+    voluntary: 'Voluntary', involuntary: 'Involuntary', retirement: 'Retirement', end_of_contract: 'End of contract', other: 'Other',
+  },
 } as const
 
 /** Label for an enum value, falling back to the raw value. */
