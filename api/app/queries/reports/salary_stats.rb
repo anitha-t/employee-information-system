@@ -2,12 +2,14 @@ module Reports
   # (a) Min, max, average and median annual salary per country, and
   # (b) the same per job title when grouped by job.
   #
-  # Population: employments with a compensation row active on as_of (so
-  # leavers after their last day and future joiners are excluded). The job
-  # title is the primary assignment active on as_of.
+  # Population: every employment with a compensation row active on as_of
+  # (active and on-notice employees; leavers after their last day and future
+  # joiners are excluded). The job title is the primary assignment active on
+  # as_of. Every group is reported, whatever its size (HR-only report).
+  #
+  # TODO(#4): response echoes only `as_of`, not country / employment_type /
+  # job_title (see CLAUDE.md "Known gaps").
   class SalaryStats < Base
-    MIN_GROUP_SIZE = 5
-
     STATS = {
       headcount: "COUNT(*)",
       min: "MIN(annual_salary_cents)",
@@ -28,10 +30,9 @@ module Reports
       rows = grouped_rows
       return { as_of: @as_of, data: countries.map { |country| country_row(country, rows[[ country.iso_code ]]) } } unless @by_job
 
-      shown, hidden = rows.partition { |_key, stats| stats[:headcount] >= MIN_GROUP_SIZE }
       {
-        as_of: @as_of, min_group_size: MIN_GROUP_SIZE, suppressed_groups: hidden.size,
-        data: shown.sort_by { |(code, title), _| [ code, title.to_s ] }.map { |(code, title), stats| job_row(code, title, stats) }
+        as_of: @as_of,
+        data: rows.sort_by { |(code, title), _| [ code, title.to_s ] }.map { |(code, title), stats| job_row(code, title, stats) }
       }
     end
 

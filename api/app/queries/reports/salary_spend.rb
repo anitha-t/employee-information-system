@@ -6,6 +6,10 @@ module Reports
   # working day. For the current year, spend is counted up to and including
   # today (partial: true). The yearly total is the sum of the monthly
   # amounts, so the breakdown always adds up.
+  #
+  # TODO(#3): queries compensations directly rather than employee_snapshots_on,
+  # contrary to the CLAUDE.md rule; reword the rule or rebase (see CLAUDE.md "Known gaps").
+  # TODO(#4): response echoes `year` but not `country` (see CLAUDE.md "Known gaps").
   class SalarySpend < Base
     def initialize(year:, country: nil, today: Date.current)
       super(country: country)
@@ -31,7 +35,7 @@ module Reports
     # Compensation rows clipped to [:from, :to) and to the last working day.
     # A constant template: every value is bound through sanitize_sql_array.
     PERIODS_SQL = <<~SQL.freeze
-      SELECT co.iso_code AS country_code, comp.employment_id, comp.annual_salary_cents,
+      SELECT co.iso_code AS country_code, e.person_id, comp.annual_salary_cents,
              GREATEST(comp.effective_from, :from) AS starts,
              LEAST(COALESCE(comp.effective_to, 'infinity'::date), :to, e.last_working_date + 1) AS ends
       FROM compensations comp
@@ -59,7 +63,7 @@ module Reports
     SQL
 
     EMPLOYEES_SQL = <<~SQL.freeze
-      SELECT country_code, COUNT(DISTINCT employment_id) FROM (#{PERIODS_SQL}) periods
+      SELECT country_code, COUNT(DISTINCT person_id) FROM (#{PERIODS_SQL}) periods
       WHERE ends > starts GROUP BY 1
     SQL
 

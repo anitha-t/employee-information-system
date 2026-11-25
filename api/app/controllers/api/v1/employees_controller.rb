@@ -7,7 +7,8 @@ module Api
 
       def index
         authorize EmployeeSnapshot, policy_class: EmployeePolicy
-        records, meta = paginate(EmployeeSearch.new(params, as_of: as_of).call)
+        filters = string_params(:q, :country, :status, *EmployeeSearch::FILTERS)
+        records, meta = paginate(EmployeeSearch.new(filters, as_of: as_of).call)
         render json: { data: records.map { |snapshot| EmployeeSerializer.new(snapshot) }, meta: meta.merge(as_of: as_of) }
       end
 
@@ -20,9 +21,7 @@ module Api
       private
 
       def as_of
-        @as_of ||= params[:as_of].present? ? Date.iso8601(params[:as_of]) : Date.current
-      rescue Date::Error
-        raise ValidationError.for("as_of", "must be an ISO-8601 date")
+        @as_of ||= date_param(:as_of, default: Date.current)
       end
     end
   end

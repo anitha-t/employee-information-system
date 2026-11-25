@@ -261,7 +261,7 @@ A new assignment row copies any fields the action did not change from the curren
 Country path: `Compensation → Employment → LegalEntity → Location → Country`.
 
 - **(a) Min / max / avg / median salary in a country.** Use employments with a compensation row active on `as_of` (default today), grouped by country (`Reports::SalaryStats`).
-- **(b) Avg salary per job title in a country.** Same as (a), joined to the primary assignment active on `as_of`, then `Position → Job.title`. Groups with fewer than 5 people are suppressed.
+- **(b) Avg salary per job title in a country.** Same as (a), joined to the primary assignment active on `as_of`, then `Position → Job.title`. Every job title is reported, whatever its size.
 - **(c) Total salary spend in calendar year Y** (`Reports::SalarySpend`). For each compensation row overlapping Y:
   ```
   active_from = max(effective_from, Jan 1 Y)

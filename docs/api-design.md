@@ -110,7 +110,7 @@ Any logged-in user can read these. Only HR can write. Unused records can be dele
 | Method | Path | Insight |
 |---|---|---|
 | GET | `/reports/salary_stats?country=&as_of=&employment_type=` | **(a)** headcount, min, max, average and median annual salary |
-| GET | `/reports/salary_by_job?country=&job_title=&as_of=&employment_type=` | **(b)** the same per job title. Groups with fewer than 5 people are suppressed and counted in `suppressed_groups`. |
+| GET | `/reports/salary_by_job?country=&job_title=&as_of=&employment_type=` | **(b)** the same per job title. Every job title is included, whatever its size. |
 | GET | `/reports/salary_spend?country=&year=&breakdown=month` | **(c)** total salary spend in the calendar year |
 
 **Shared behaviour**
@@ -125,7 +125,7 @@ Any logged-in user can read these. Only HR can write. Unused records can be dele
 **(c)**
 - **Proration:** each compensation row contributes `annual_salary ÷ days_in_year` for every day it was in effect within the year, ending at the last working day.
 - **Current year:** counted up to and including today (`partial: true`, `to` = today). A future year returns zero and `to: null`.
-- **Breakdown:** `total_spend` is the sum of the monthly amounts, so `breakdown=month` always adds up. `employee_count` is the number of employments paid at any point in the period.
+- **Breakdown:** `total_spend` is the sum of the monthly amounts, so `breakdown=month` always adds up. `employee_count` is the number of distinct people paid at any point in the period. Someone who moved legal entity within the country counts once.
 
 ```json
 // salary_stats
@@ -133,7 +133,7 @@ Any logged-in user can read these. Only HR can write. Unused records can be dele
   "min": {"amount": "602000.00", "currency": "INR"}, "max": {…}, "average": {…}, "median": {…} } ] }
 
 // salary_by_job
-{ "as_of": "2026-11-25", "min_group_size": 5, "suppressed_groups": 0,
+{ "as_of": "2026-11-25",
   "data": [ { "country": "US", "currency": "USD", "job_title": "Software Engineer", "headcount": 679, "min": {…}, "max": {…}, "average": {…}, "median": {…} } ] }
 
 // salary_spend?year=2025&breakdown=month

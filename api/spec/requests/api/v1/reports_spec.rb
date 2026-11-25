@@ -75,14 +75,16 @@ RSpec.describe "Salary reports" do
             compensation: { annual_salary: { amount: "100000", currency: "USD" } })
     end
 
-    it "groups by country and job title and hides groups under 5 people" do
+    it "groups by country and job title, including groups of one" do
       report("salary_by_job")
 
-      expect(json).to include("as_of" => "2026-06-01", "min_group_size" => 5, "suppressed_groups" => 1)
-      expect(json["data"]).to eq([ {
-        "country" => "IN", "currency" => "INR", "job_title" => "Software Engineer", "headcount" => 5,
-        "min" => inr(1_000_000), "max" => inr(2_000_000), "average" => inr(1_440_000), "median" => inr(1_400_000)
-      } ])
+      usd = { "amount" => "100000.00", "currency" => "USD" }
+      expect(json).to eq("as_of" => "2026-06-01", "data" => [
+        { "country" => "IN", "currency" => "INR", "job_title" => "Software Engineer", "headcount" => 5,
+          "min" => inr(1_000_000), "max" => inr(2_000_000), "average" => inr(1_440_000), "median" => inr(1_400_000) },
+        { "country" => "US", "currency" => "USD", "job_title" => "Designer", "headcount" => 1,
+          "min" => usd, "max" => usd, "average" => usd, "median" => usd }
+      ])
     end
 
     it "filters by job title, case-insensitively" do
@@ -118,6 +120,21 @@ RSpec.describe "Salary reports" do
       ])
     end
 
+    it "counts a person who moved legal entity during the year once" do
+      second_entity = create(:legal_entity, country_code: "IN")
+      mover = hire_in_india(3, 3_650_000, effective_date: "2024-06-01")
+      post_action(action_type: "separation", employment_id: mover.id, separation: { last_working_date: "2025-05-31" })
+      hire!(person: nil, person_id: mover.person_id, effective_date: "2025-06-01",
+            employment: { legal_entity_id: second_entity.id, work_email: "p3.new@acme.example" },
+            assignment: { position_id: create(:position, job: job, legal_entity: second_entity).id },
+            compensation: { annual_salary: { amount: "3650000", currency: "INR" } })
+
+      report("salary_spend", country: "IN", year: 2025)
+
+      # joiner + leaver + mover (two employments, one person); mover paid all 365 days
+      expect(json["data"].sole).to include("employee_count" => 3, "total_spend" => inr(3_660_000 + 3_650_000))
+    end
+
     it "counts the current year up to today" do
       report("salary_spend", country: "IN", year: 2026)
 
@@ -139,6 +156,9 @@ RSpec.describe "Salary reports" do
       expect(json["year"]).to eq(2026)
 
       report("salary_spend", year: "twenty")
+      expect(json.dig("error", "details")).to eq("year" => [ "must be a whole number" ])
+
+      report("salary_spend", year: "1990")
       expect(json.dig("error", "details")).to eq("year" => [ "must be a year between 2000 and 2100" ])
     end
   end

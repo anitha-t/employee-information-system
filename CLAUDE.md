@@ -25,7 +25,7 @@ When the schema or the API changes, update the matching doc in the same change.
 - **Roles**: only `hr` (global, full access) and `employee` (own profile: `preferred_name`, `phone_number`, `email`, addresses, emergency contacts). Enforce roles in Pundit policies, not in controllers.
 - **Audit**: `paper_trail` on all domain tables, with `whodunnit = current_user.id`.
 - **Employee lists and reports** read from the SQL function `employee_snapshots_on(as_of)`, through `EmployeeSnapshot.as_of(date)`. Always pass the date from Rails (`Date.current`), never rely on the database's `CURRENT_DATE`. Postgres inlines the function, so filters push down. The `employee_snapshots` view exists only to give ActiveRecord column types. When changing the function, drop and recreate both in a migration.
-- The salary-by-job report suppresses groups with fewer than 5 employees.
+- Salary reports include every employment with a compensation row active on `as_of`, and report every group whatever its size. They are HR-only.
 
 ## Conventions
 
@@ -92,3 +92,11 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
 - Effective-dated models include the `EffectiveDated` concern (`active_on(date)`, `current`, `open_ended`).
 - `ApplicationRecord` uses `implicit_order_column = :created_at`, because UUID keys don't sort meaningfully.
 - Model specs live in `spec/models`. Factories live in `spec/factories` (countries are reused through `find_or_initialize_by`).
+- Controllers read query-string values through `QueryParams` (`string_param`, `string_params`, `date_param`, `integer_param`), never raw `params[...]`. Arrays and hashes (`?x[]=`, `?x[a]=`) return `422 "must be a single value"` instead of a 500.
+
+## Known gaps (TODO)
+
+Flagged in code review on 2026-11-25, to be fixed later:
+
+- **TODO (#3): the "reports read `employee_snapshots_on`" rule is out of date.** The rule above says employee lists *and reports* read from `employee_snapshots_on(as_of)`. `Reports::SalarySpend` (report c) instead queries `compensations → employments → legal_entities → locations → countries` directly. It needs every compensation row overlapping the year, not one row per employment. Either reword the rule to exempt report (c), or build it on the function. `docs/domain-model.md` already describes the exemption.
+- **TODO (#4): report responses don't echo all request parameters.** The "Salary reports" rule says they return `{…params, data}`. Actually, `salary_stats` and `salary_by_job` return only `as_of`, dropping `country`, `employment_type` and `job_title`, and `salary_spend` returns `year` but not `country`. Either echo the effective filters at the top level, or relax the rule.

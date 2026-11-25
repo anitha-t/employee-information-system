@@ -53,15 +53,18 @@ module Api
 
       def filtered(scope)
         scope = scope.includes(INCLUDES).order(effective_date: :desc, created_at: :desc)
-        scope = scope.where(employment_id: params[:employment_id]) if params[:employment_id].present?
-        scope = scope.where(action_type: params[:action_type]) if params[:action_type].present?
-        scope = scope.where(created_by_user_id: params[:created_by]) if params[:created_by].present?
-        scope = scope.where(reviewed_by_user_id: params[:reviewed_by]) if params[:reviewed_by].present?
-        scope = scope.where(effective_date: params[:effective_from]..) if params[:effective_from].present?
-        scope = scope.where(effective_date: ..params[:effective_to]) if params[:effective_to].present?
-        if params[:country].present?
+        filters = string_params(:employment_id, :action_type, :created_by, :reviewed_by, :country)
+        from = date_param(:effective_from)
+        to = date_param(:effective_to)
+        scope = scope.where(employment_id: filters[:employment_id]) if filters[:employment_id]
+        scope = scope.where(action_type: filters[:action_type]) if filters[:action_type]
+        scope = scope.where(created_by_user_id: filters[:created_by]) if filters[:created_by]
+        scope = scope.where(reviewed_by_user_id: filters[:reviewed_by]) if filters[:reviewed_by]
+        scope = scope.where(effective_date: from..) if from
+        scope = scope.where(effective_date: ..to) if to
+        if filters[:country]
           scope = scope.joins(employment: { legal_entity: { location: :country } })
-                       .where(countries: { iso_code: params[:country].to_s.upcase })
+                       .where(countries: { iso_code: filters[:country].upcase })
         end
         scope
       end
