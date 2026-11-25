@@ -7,37 +7,26 @@
   Country.find_or_initialize_by(iso_code: attrs[:iso_code]).update!(attrs)
 end
 
-# Development-only bootstrap HR login (never runs in other environments).
-if Rails.env.development?
-  hr_person = Person.find_or_create_by!(email: "hr.admin@example.com") do |person|
-    person.first_name = "HR"
-    person.last_name = "Admin"
-  end
-  User.find_or_create_by!(email_address: "hr@employee-information-system.local") do |user|
-    user.person = hr_person
-    user.role = "hr"
-    user.password = ENV.fetch("DEV_HR_PASSWORD", "dev-password-123")
-  end
-  puts "Dev HR login: hr@employee-information-system.local / #{ENV.fetch('DEV_HR_PASSWORD', 'dev-password-123')}"
-end
+# Everything below is development-only.
+return unless Rails.env.development?
 
-# Development-only demo org: grades, teams, offices, legal entities, salary
-# bands, jobs and positions. Idempotent, so it also tops up an existing database.
-if Rails.env.development?
-  require Rails.root.join("db/seeds/reference_data").to_s
-  Seeds::ReferenceData.new.call
-end
+require Rails.root.join("db/seeds/dev_accounts").to_s
+require Rails.root.join("db/seeds/reference_data").to_s
 
-# Development-only demo data: 10,000 employees with history (bulk insert,
-# takes seconds). Skipped when employees already exist. SEED_EMPLOYEES=0 skips it.
-if Rails.env.development? && ENV.fetch("SEED_EMPLOYEES", "10000").to_i.positive?
+# The HR and employee logins and their people. The bulk seed needs an HR user.
+dev_accounts = Seeds::DevAccounts.new
+dev_accounts.ensure_users!
+
+# Demo org: grades, teams, offices, legal entities, salary bands, jobs and
+# positions. Idempotent, so it also tops up an existing database.
+Seeds::ReferenceData.new.call
+
+# 10,000 demo employees with history (bulk insert, takes seconds). Skipped
+# when employees already exist. SEED_EMPLOYEES=0 skips it.
+if ENV.fetch("SEED_EMPLOYEES", "10000").to_i.positive?
   require Rails.root.join("db/seeds/employees").to_s
   Seeds::Employees.new(count: ENV.fetch("SEED_EMPLOYEES", "10000").to_i).call
-
-  employee = Employment.active.where("hire_date <= ?", Date.current).order(:employee_number).first
-  if employee && !User.exists?(email_address: "employee@employee-information-system.local")
-    User.create!(person: employee.person, role: "employee", email_address: "employee@employee-information-system.local",
-                 password: ENV.fetch("DEV_HR_PASSWORD", "dev-password-123"))
-  end
-  puts "Dev employee login: employee@employee-information-system.local / #{ENV.fetch('DEV_HR_PASSWORD', 'dev-password-123')}" if employee
 end
+
+# The logins as real employees: employment history, addresses, emergency contacts.
+dev_accounts.ensure_employments!

@@ -53,7 +53,7 @@ bin/rubocop                 # lint (omakase + rspec, rspec_rails, factory_bot, p
 bin/rubocop -a              # autocorrect safe offenses
 bin/brakeman -q --no-pager  # security scan
 bin/rails s                 # http://localhost:3000, health check at /up
-bin/rails db:seed           # countries + dev logins + 10,000 demo employees (dev only, ~6s, skipped if employees exist)
+bin/rails db:seed           # countries + demo org + 10,000 demo employees (skipped if any exist) + dev logins as employees (dev only)
 bin/rails db:seed:replant   # wipe all data and reseed
 bin/rails db:seed:employees COUNT=20000 SEED=42   # bulk demo employees at any size (refuses in production)
 bin/rails db:seed:reference_data                  # demo org only: grades, teams, offices, entities, bands, jobs, positions (idempotent)
@@ -92,7 +92,11 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
 - Money in JSON goes through `MoneySerializer.call(money)`. List endpoints use the `Paginated` concern and return `{data, meta}`.
 - `ActiveRecord::ExclusionViolation` renders as `422 conflicting_record`. The primary-emergency-contact constraint is `DEFERRABLE INITIALLY DEFERRED`. Specs that need it to fire must run `SET CONSTRAINTS … IMMEDIATE`, because test transactions never commit.
 - **Reference data** (`/countries`, `/locations`, `/legal_entities`, `/teams`, `/grades`, `/jobs`, `/positions`, `/salary_bands`) is read-only and controllers inherit `ReferenceDataController` (`only_active`, `country`, `render_list`). Salary bands are HR-only, everything else is readable by any signed-in user (`ReferenceDataPolicy`). Flags go through `boolean_param`.
-- Dev logins (seeded by `bin/rails db:seed`, development only): `hr@employee-information-system.local` (HR) and `employee@employee-information-system.local` (employee), both with password `dev-password-123`. Dev emails are written to `api/tmp/mails`.
+- **Dev logins** are seeded by `bin/rails db:seed` (development only, `db/seeds/dev_accounts.rb`). Both use password `dev-password-123`, and dev emails are written to `api/tmp/mails`.
+  - `hr@employee-information-system.local` (HR) is Ananya Iyer, HR Generalist.
+  - `employee@employee-information-system.local` (employee) is Priya Sharma, Software Engineer, who reports to an Engineering Manager.
+  - Both are real employees with hire, salary and promotion history, addresses and emergency contacts, all created through `EmploymentActions::Create` and `Profiles::Update`.
+  - The seeder is idempotent and re-links logins that older seeds attached to other people.
 - **Demo org** (`db/seeds/reference_data.rb`, `Seeds::ReferenceData`): grades, teams, offices, legal entities with registered addresses, salary bands, jobs and positions, including some open or remote seats.
   - It is idempotent: it finds records by natural key and only creates or fills in what's missing, so `db:seed` tops up an existing dev DB.
   - `Seeds::Employees` builds on the org it returns.
