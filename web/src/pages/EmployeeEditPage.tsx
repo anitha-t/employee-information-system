@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { PageSpinner } from '../components/ui/Spinner'
 import { ErrorState } from '../components/ui/states'
@@ -13,6 +14,7 @@ export function EmployeeEditPage() {
   const navigate = useNavigate()
   const employee = useEmployee(employmentId)
   const profile = usePersonProfile(employee.data?.person.id)
+  const [generation, setGeneration] = useState(0)
   const back = `/employees/${employmentId}`
 
   if (employee.isError) {
@@ -29,14 +31,15 @@ export function EmployeeEditPage() {
         <ErrorState message="We couldn't load this profile." onRetry={() => profile.refetch()} />
       ) : (
         <ProfileEditor
-          key={profile.data.lockVersion}
+          // Remount only on an explicit reload, never because the cache changed (e.g. after saving).
+          key={generation}
           profile={profile.data}
           target={{ kind: 'person', personId: profile.data.id }}
           canEditLegal
           defaultCountryIso={employee.data.country.isoCode}
           savedMessage={(saved) => `Saved ${saved.fullName}'s profile.`}
           onDone={() => navigate(back)}
-          onReload={() => profile.refetch()}
+          onReload={async () => { await profile.refetch(); setGeneration((n) => n + 1) }}
         />
       )}
     </div>

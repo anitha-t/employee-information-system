@@ -22,12 +22,19 @@ interface Props {
   /** Toast text, from the saved profile (its name may have just changed). */
   savedMessage: (saved: Profile) => string
   onDone: () => void
-  /** Refetches the profile; the caller remounts this editor with the fresh copy. */
+  /** Refetches the profile; the caller then remounts this editor (new `key`) with the fresh copy. */
   onReload: () => void
 }
 
-/** Loads a profile into ProfileForm and saves it (docs/web-design.md §5.1). */
-export function ProfileEditor({ profile, target, canEditLegal, defaultCountryIso, savedMessage, onDone, onReload }: Props) {
+/**
+ * Loads a profile into ProfileForm and saves it (docs/web-design.md §5.1).
+ *
+ * Works on the profile it was opened with: later cache updates (the saved
+ * profile, a background refetch) neither reset the form nor change the
+ * lock_version it sends. Only a reload after a conflict starts afresh.
+ */
+export function ProfileEditor({ profile: openedWith, target, canEditLegal, defaultCountryIso, savedMessage, onDone, onReload }: Props) {
+  const [profile] = useState(openedWith)
   const toast = useToast()
   const countries = useCountries()
   const update = useUpdateProfile(target)

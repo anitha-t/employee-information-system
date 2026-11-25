@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { apiError, employee, employeeDetail, employeeMe, employeesPage, hrMe, profile } from '../test/fixtures'
 import { renderApp } from '../test/render'
@@ -77,6 +77,33 @@ describe('edit an employee (HR)', () => {
     expect(await screen.findByText("Saved Priyanka Sharma's profile.")).toBeInTheDocument()
     await waitFor(() => expect(location()).toBe('/employees/emp-1'))
     expect(body).toMatchObject({ lock_version: 3, first_name: 'Priyanka', gender: 'undisclosed', last_name: 'Sharma' })
+  })
+
+  it('stays submitting until it navigates away, even after the cache holds the saved profile', async () => {
+    let patches = 0
+    server.use(
+      http.patch(`${API}/people/p-emp/profile`, () => {
+        patches += 1
+        return HttpResponse.json({ ...profile, lock_version: 4 })
+      }),
+      // Hold the refetches the save triggers, so the window between "saved" and "navigated" stays open.
+      http.get(`${API}/me`, async () => {
+        await delay(300)
+        return HttpResponse.json(hrMe)
+      }),
+    )
+    const { user, location } = renderApp('/employees/emp-1/edit')
+
+    await user.type(await screen.findByLabelText('Preferred name'), 'x')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(patches).toBe(1))
+
+    const save = screen.getByRole('button', { name: 'Save' })
+    expect(save).toBeDisabled()
+    expect(screen.getByLabelText('Preferred name')).toHaveValue('Anux') // not reset to the saved copy
+    await user.click(save)
+    await waitFor(() => expect(location()).toBe('/employees/emp-1'))
+    expect(patches).toBe(1)
   })
 
   it('treats a row deleted by someone else as a conflict', async () => {

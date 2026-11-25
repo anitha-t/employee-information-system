@@ -276,9 +276,12 @@ Payload (api-design.md §3.1):
 
 Results:
 - **`200`:** the response is the new profile. It replaces the cached profile, and `["me"]` and `["employees"]` are invalidated (the display name may have changed). Then the user goes back.
+  - The form keeps the profile it was opened with until it leaves, so the cache update doesn't reset it mid-save. The same copy supplies `lock_version`, so a background refetch can't swap it.
 - **`422`:** `addresses[1].line1` maps to the field `addresses.1.line1`. Errors that don't match a field (e.g. `emergencyContacts` "can have only one primary contact") go to the summary.
-- **`409 stale_object`:** "Someone else changed this profile while you were editing." The "Reload" button refetches and resets the form, discarding these edits. Nothing was saved.
-- **`403` / `404`** (a field or nested id the user may not touch; shouldn't happen from this UI) go in the summary.
+- **`409 stale_object`, or `404`:** "Someone else changed this profile while you were editing." Nothing was saved.
+  - A `404` means an address or contact on screen was deleted by someone else, because the API checks nested ids before `lock_version`. The fix is the same as for a conflict.
+  - The "Reload" button refetches and remounts the form with the fresh copy, discarding these edits.
+- **`403`** (a field the user may not change; shouldn't happen from this UI) goes in the summary.
 - **Cancel** asks "Discard your changes?" when the form is dirty.
 
 ### 5.2 Employee detail (`/employees/:employmentId`, HR)
