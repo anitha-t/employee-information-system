@@ -60,3 +60,8 @@ bin/rails s                 # http://localhost:3000, health check at /up
 - Errors are rendered by `ApiErrorHandling` (`app/controllers/concerns/`). Raise ActiveRecord or Pundit errors instead of rendering them by hand.
 - CORS allows `WEB_ORIGINS` (default `http://localhost:5173`) on `/api/*`.
 - Audit versions are stored in jsonb (`object`, `object_changes`), plus `whodunnit`, `request_id` and `ip`.
+- Enums are string columns declared with `string_enum` (`ApplicationRecord`). They are validated, and accept `allow_nil: true` for optional values.
+- Effective-dated models include the `EffectiveDated` concern (`active_on(date)`, `current`, `open_ended`).
+- `ApplicationRecord` uses `implicit_order_column = :created_at`, because UUID keys don't sort meaningfully.
+- Overlap violations raise `ActiveRecord::ExclusionViolation`. Services should catch it and turn it into a 422.
+- Model specs live in `spec/models`. Factories live in `spec/factories` (countries are reused through `find_or_initialize_by`).

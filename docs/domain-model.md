@@ -247,6 +247,12 @@ A new assignment row copies any fields the action did not change from the curren
 6. Only the **latest** action of an employment may change its `effective_date`. Older actions may only change values.
 7. Unique: `employee_number`, `Job.code`, `Position.code`, `Country.iso_code`, `User.person_id`, `User.email_address`, `Person.email`.
 8. A daily recurring job (Solid Queue) moves employments from `on_notice` to `separated` after `last_working_date`.
+9. `Employment.work_email` is unique among non-separated employments, so a rehired person can reuse their old work email.
+10. Salary bands cannot overlap for the same grade and country (exclusion constraint). `Grade.rank` and `LegalEntity.name` are unique.
+11. Enum values:
+    - `Person.gender`: `female`, `male`, `non_binary`, `undisclosed`
+    - `Employment.separation_type`: `voluntary`, `involuntary`, `retirement`, `end_of_contract`, `other`
+    - A Session token is valid for 14 days.
 
 ---
 
