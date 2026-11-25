@@ -13,6 +13,10 @@ module ApiErrorHandling
                    details: e.record.errors.to_hash(false)
     end
 
+    rescue_from ValidationError do |e|
+      render_error :unprocessable_content, "validation_failed", "Validation failed", details: e.details
+    end
+
     rescue_from ActiveRecord::StaleObjectError do
       render_error :conflict, "stale_object",
                    "This record was changed by someone else. Reload and try again."

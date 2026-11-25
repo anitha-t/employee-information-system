@@ -16,6 +16,7 @@ class EmploymentAction < ApplicationRecord
 
   validates :effective_date, presence: true
   validates :reviewed_by_user, presence: true, if: :review_decision?
+  validate :reviewer_is_hr
   validate :effective_date_not_before_hire_date
 
   scope :chronological, -> { order(:effective_date, :created_at) }
@@ -25,6 +26,10 @@ class EmploymentAction < ApplicationRecord
   end
 
   private
+
+  def reviewer_is_hr
+    errors.add(:reviewed_by_user, "must be an HR user") if reviewed_by_user && !reviewed_by_user.hr?
+  end
 
   def effective_date_not_before_hire_date
     return if employment.nil? || effective_date.blank? || employment.hire_date.blank?

@@ -11,6 +11,8 @@ Rails.application.routes.draw do
       patch "me/profile", to: "profiles#update"
       get "people/:person_id/profile", to: "profiles#show", as: :person_profile
       patch "people/:person_id/profile", to: "profiles#update"
+
+      resources :employment_actions, only: %i[index show create update]
     end
   end
 end

@@ -21,6 +21,18 @@ RSpec.describe Assignment do
     expect(build(:assignment, employment: employment, effective_from: Date.new(2025, 12, 31))).not_to be_valid
   end
 
+  it "requires the position to be active on the start date" do
+    position = create(:position, legal_entity: employment.legal_entity, effective_from: Date.new(2026, 3, 1))
+    assignment = build(:assignment, employment: employment, position: position, effective_from: Date.new(2026, 1, 1))
+    expect(assignment).not_to be_valid
+    expect(assignment.errors[:position]).to include("is not active on 2026-01-01")
+  end
+
+  it "cannot report to a separated employment" do
+    manager = create(:employment, status: "separated", last_working_date: Date.new(2026, 6, 30))
+    expect(build(:assignment, employment: employment, reports_to_employment: manager)).not_to be_valid
+  end
+
   it "cannot report to the same employment" do
     expect(build(:assignment, employment: employment, reports_to_employment: employment)).not_to be_valid
   end

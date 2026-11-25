@@ -247,6 +247,37 @@ Validations:
 
 A salary outside the salary band is still accepted, and the response includes a `warnings` array.
 
+How actions apply:
+- **Date order.** A change must be dated after the latest change of the same kind (assignment or compensation). Otherwise it returns `422 effective_date`.
+- **What a change does.** It closes the row active on `effective_date` and opens a new row from that date. Fields not sent are copied from the closed row. For example, a promotion keeps the current manager.
+- **No changes after a separation.** Once an employment is `on_notice` or `separated`, other actions return `422 employment_id`.
+- **Separation dates.**
+  - A separation's `effective_date` is its `last_working_date` (it may be omitted).
+  - All open rows close at `last_working_date + 1`.
+  - Status becomes `on_notice`, or `separated` if the last working day is already past. A separated person is signed out everywhere.
+  - The daily `SeparationSweepJob` moves `on_notice` to `separated` once the last working day has passed.
+- **Rehires.** A hire with `person_id` (a rehire) is refused if that person still has a non-separated employment.
+- **Reviewer.** `reviewed_by_user_id` must be an HR user. Setting `review_decision` stamps `reviewed_at`.
+- **Error keys.** Validation errors are keyed by payload section, e.g. `compensation.annual_salary.currency` or `assignment.grade`.
+- **Not built yet:** `create_user` (invite on hire).
+
+Response (`201` for create, `200` for update and show):
+```json
+{ "id": "…", "lock_version": 0, "action_type": "promotion", "effective_date": "2026-04-01", "reason": "…",
+  "employment": { "id": "…", "employee_number": "E000123", "status": "active", "person": { "id": "…", "display_name": "Priya Sharma" } },
+  "assignment": { "id": "…", "effective_from": "2026-04-01", "effective_to": null, "position": {…}, "job": {…}, "team": {…},
+                  "grade": { "id": "…", "code": "G5" }, "reports_to": { "employment_id": "…", "display_name": "…" } },
+  "compensation": { "id": "…", "effective_from": "2026-04-01", "effective_to": null,
+                    "annual_salary": { "amount": "2200000.00", "currency": "INR" }, "pay_frequency": "monthly" },
+  "separation": null, "created_by": { "id": "…", "display_name": "…" }, "created_at": "…",
+  "reviewed_by": null, "review_decision": null, "reviewed_at": null,
+  "previous": { "assignment": {…}, "compensation": {…} },
+  "warnings": [ "annual_salary … is outside the G5 band for IN (…)" ] }
+```
+- `previous` appears only on `GET /employment_actions/:id`.
+- `warnings` appears only when there are any.
+- `GET /employment_actions` returns `{ "data": [ … ], "meta": { "page", "per_page", "total_count" } }`, newest `effective_date` first.
+
 ### 3.3 `PATCH /employment_actions/:id`
 
 ```json
@@ -258,7 +289,16 @@ A salary outside the salary band is still accepted, and the response includes a 
   "review_decision": "approved"
 }
 ```
-This updates the action and its linked rows in one transaction. Changing `effective_date` also moves the previous row's `effective_to`, and is allowed only on the employment's latest action.
+This updates the action and its linked rows in one transaction.
+- **`lock_version` is required.** A stale one returns `409`.
+- **Updatable sections:** only sections the action already has, and only the assignment fields its type may set. Anything else returns `422`.
+- **Salary:** `compensation.annual_salary` and `pay_frequency` can be changed independently.
+- **`effective_date`:**
+  - It can only be moved on the employment's latest action. Resending an unchanged date is accepted on any action.
+  - Moving it also moves the previous row's `effective_to`.
+  - It must stay after the previous row's start.
+  - On a hire, it also changes `hire_date`.
+- **Separations:** change `separation.last_working_date` and the other separation fields. The rows' end date and the status are recalculated.
 
 ---
 

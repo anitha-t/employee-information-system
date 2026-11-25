@@ -72,6 +72,9 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
 - Responses are built by POROs in `app/serializers` (`XSerializer.new(record).as_json`).
 - **Field-level permissions:** policies expose `permitted_attributes`. Controllers raise `ForbiddenAttributesError` for disallowed fields, which renders as `403 forbidden_fields`. Never silently drop a field the user isn't allowed to send.
 - **Profile edits** go through `Profiles::Update`. It always bumps the person's `lock_version`, so nested-only changes are also protected against concurrent edits.
+- **Request-level validation** (payload shape, cross-record rules) raises `ValidationError` with `{"field.path" => [msgs]}`, which renders as `422 validation_failed`. Services in `app/services/employment_actions` prefix model errors with the payload section through `RecordErrors#with_section_errors`.
+- **Employment actions** go through `EmploymentActions::Create` and `EmploymentActions::Update` only. These services lock the employment row, apply changes in date order, and never let effective-dated rows overlap. When moving a date, shrink the neighbouring row first and grow the other second.
+- Money in JSON goes through `MoneySerializer.call(money)`. List endpoints use the `Paginated` concern and return `{data, meta}`.
 - `ActiveRecord::ExclusionViolation` renders as `422 conflicting_record`. The primary-emergency-contact constraint is `DEFERRABLE INITIALLY DEFERRED`. Specs that need it to fire must run `SET CONSTRAINTS … IMMEDIATE`, because test transactions never commit.
 - Dev login (seeded by `bin/rails db:seed`, development only): `hr@salary-management.local` / `dev-password-123`. Dev emails are written to `api/tmp/mails`.
 - CORS allows `WEB_ORIGINS` (default `http://localhost:5173`) on `/api/*`.

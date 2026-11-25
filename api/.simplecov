@@ -7,8 +7,6 @@ SimpleCov.configure do
   skip "/db/"
   skip "/spec/"
   skip "/vendor/"
-  # Empty Rails base class; remove this once a real job exists.
-  skip "app/jobs/application_job.rb"
 
   group "Services", "app/services"
   group "Policies", "app/policies"

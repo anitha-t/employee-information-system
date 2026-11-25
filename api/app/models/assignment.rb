@@ -17,6 +17,8 @@ class Assignment < ApplicationRecord
   validate :grade_within_job_range
   validate :starts_on_or_after_hire_date
   validate :does_not_report_to_self
+  validate :position_active_on_start
+  validate :manager_not_separated
 
   private
 
@@ -36,6 +38,16 @@ class Assignment < ApplicationRecord
     return if employment.nil? || effective_from.blank? || effective_from >= employment.hire_date
 
     errors.add(:effective_from, "cannot be before the hire date")
+  end
+
+  def position_active_on_start
+    return if position.nil? || effective_from.blank? || position.active_on?(effective_from)
+
+    errors.add(:position, "is not active on #{effective_from}")
+  end
+
+  def manager_not_separated
+    errors.add(:reports_to_employment, "is separated") if reports_to_employment&.separated?
   end
 
   def does_not_report_to_self
