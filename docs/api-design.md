@@ -109,11 +109,40 @@ Any logged-in user can read these. Only HR can write. Unused records can be dele
 
 | Method | Path | Insight |
 |---|---|---|
-| GET | `/reports/salary_stats?country=&as_of=` | **(a)** min, max, average, median and headcount |
-| GET | `/reports/salary_by_job?country=&job_title=&as_of=` | **(b)** per job title. Groups with fewer than 5 people are suppressed. |
-| GET | `/reports/salary_spend?country=&year=&breakdown=month` | **(c)** prorated spend for the calendar year |
+| GET | `/reports/salary_stats?country=&as_of=&employment_type=` | **(a)** headcount, min, max, average and median annual salary |
+| GET | `/reports/salary_by_job?country=&job_title=&as_of=&employment_type=` | **(b)** the same per job title. Groups with fewer than 5 people are suppressed and counted in `suppressed_groups`. |
+| GET | `/reports/salary_spend?country=&year=&breakdown=month` | **(c)** total salary spend in the calendar year |
 
-Without `country`, the response has one entry per country, each in its own currency.
+**Shared behaviour**
+- All three return one entry per country in `data`, each in that country's currency. Amounts are never summed across currencies.
+- Without `country`, every country is listed (with zero headcount where nobody is paid). An unknown code returns `422`.
+
+**(a) and (b)**
+- **Who is counted:** employments with a compensation row active on `as_of` (default today). People after their last working day and future joiners are excluded.
+- **Job title (b):** the primary assignment active on `as_of`. The `job_title` filter is case-insensitive.
+- `employment_type` optionally narrows the population, e.g. `full_time`.
+
+**(c)**
+- **Proration:** each compensation row contributes `annual_salary ÷ days_in_year` for every day it was in effect within the year, ending at the last working day.
+- **Current year:** counted up to and including today (`partial: true`, `to` = today). A future year returns zero and `to: null`.
+- **Breakdown:** `total_spend` is the sum of the monthly amounts, so `breakdown=month` always adds up. `employee_count` is the number of employments paid at any point in the period.
+
+```json
+// salary_stats
+{ "as_of": "2026-11-25", "data": [ { "country": "IN", "currency": "INR", "headcount": 5699,
+  "min": {"amount": "602000.00", "currency": "INR"}, "max": {…}, "average": {…}, "median": {…} } ] }
+
+// salary_by_job
+{ "as_of": "2026-11-25", "min_group_size": 5, "suppressed_groups": 0,
+  "data": [ { "country": "US", "currency": "USD", "job_title": "Software Engineer", "headcount": 679, "min": {…}, "max": {…}, "average": {…}, "median": {…} } ] }
+
+// salary_spend?year=2025&breakdown=month
+{ "year": 2025, "from": "2025-01-01", "to": "2025-12-31", "partial": false,
+  "data": [ { "country": "IN", "currency": "INR", "employee_count": 5374, "total_spend": {"amount": "9180510531.50", "currency": "INR"},
+              "breakdown": [ { "month": "2025-01", "spend": {…} } ] } ] }
+```
+
+Measured on the 10,000-employee seed: (a) ~115 ms, (b) ~70 ms, (c) ~50 ms.
 
 ---
 

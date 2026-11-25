@@ -14,6 +14,12 @@ Rails.application.routes.draw do
 
       resources :employment_actions, only: %i[index show create update]
       resources :employees, only: %i[index show]
+
+      scope :reports, controller: :reports, as: :reports do
+        get :salary_stats
+        get :salary_by_job
+        get :salary_spend
+      end
     end
   end
 end

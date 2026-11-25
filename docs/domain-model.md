@@ -260,19 +260,19 @@ A new assignment row copies any fields the action did not change from the curren
 
 Country path: `Compensation → Employment → LegalEntity → Location → Country`.
 
-- **(a) Min / max / avg salary in a country.** Use compensation rows active on `as_of` (default today) for employments that are not `separated`, grouped by country.
-- **(b) Avg salary per job title in a country.** Same as (a), joined to the primary assignment active on `as_of`, then `→ Position → Job.title`. Groups with fewer than 5 people are suppressed.
-- **(c) Total salary spend in calendar year Y.** For each compensation row overlapping Y:
+- **(a) Min / max / avg / median salary in a country.** Use employments with a compensation row active on `as_of` (default today), grouped by country (`Reports::SalaryStats`).
+- **(b) Avg salary per job title in a country.** Same as (a), joined to the primary assignment active on `as_of`, then `Position → Job.title`. Groups with fewer than 5 people are suppressed.
+- **(c) Total salary spend in calendar year Y** (`Reports::SalarySpend`). For each compensation row overlapping Y:
   ```
   active_from = max(effective_from, Jan 1 Y)
-  active_to   = min(coalesce(effective_to, ∞), Jan 1 Y+1, last_working_date + 1)
+  active_to   = min(coalesce(effective_to, ∞), Jan 1 Y+1, today + 1, last_working_date + 1)
   spend       = annual_salary × (active_to − active_from) / days_in_year(Y)
   ```
-  Sum the spend per country, which is a single currency.
+  Sum the spend per country, which is a single currency. The total is the sum of monthly amounts.
 
 The employee list and reports (a) and (b) read from the SQL function `employee_snapshots_on(as_of)`. It returns one row per employment, with person, legal entity, country, and the primary assignment and compensation for that date:
 - If a row started on or before `as_of`, the function picks the latest such row.
 - Otherwise (a future hire), it picks the earliest upcoming row.
 - Reports filter on the returned `*_effective_from/to` columns when they need rows strictly active on `as_of`.
 
-It is a function rather than a view so the date is a parameter. Report (c) will get its own query when the reports are built.
+It is a function rather than a view so the date is a parameter. Report (c) queries `compensations` directly, because it needs every row overlapping the year, not one row per employee.
