@@ -2,6 +2,8 @@ require "rails_helper"
 
 RSpec.describe ApiErrorHandling do
   controller(ApplicationController) do
+    allow_unauthenticated_access
+
     def index
       case params[:raise]
       when "not_found" then raise ActiveRecord::RecordNotFound.new("x", "Person")

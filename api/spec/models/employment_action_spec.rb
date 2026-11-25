@@ -11,6 +11,12 @@ RSpec.describe EmploymentAction do
     expect(build(:employment_action, employment: employment, effective_date: Date.new(2026, 1, 4))).not_to be_valid
   end
 
+  it "reports a missing employment instead of failing the date check" do
+    action = build(:employment_action, employment: nil, effective_date: Date.new(2026, 1, 1))
+    expect(action).not_to be_valid
+    expect(action.errors[:employment]).to be_present
+  end
+
   it "requires a reviewer when a review decision is recorded" do
     action = build(:employment_action, employment: employment, review_decision: "approved")
     expect(action).not_to be_valid

@@ -1,20 +1,27 @@
-# Loaded automatically by `require "simplecov"` (top of spec/spec_helper.rb).
-SimpleCov.start "rails" do
+# Coverage configuration (SimpleCov 1.3 API). Coverage is started from
+# spec/spec_helper.rb, before any application code is loaded.
+SimpleCov.configure do
   enable_coverage :branch
 
-  add_filter "/bin/"
-  add_filter "/db/"
-  add_filter "/spec/"
-  add_filter "/vendor/"
-  # Empty Rails base classes; remove these once real jobs / mailers exist.
-  add_filter "app/jobs/application_job.rb"
-  add_filter "app/mailers/application_mailer.rb"
+  skip "/bin/"
+  skip "/db/"
+  skip "/spec/"
+  skip "/vendor/"
+  # Empty Rails base class; remove this once a real job exists.
+  skip "app/jobs/application_job.rb"
 
-  add_group "Services", "app/services"
-  add_group "Policies", "app/policies"
-  add_group "Validators", "app/validators"
+  group "Services", "app/services"
+  group "Policies", "app/policies"
+  group "Serializers", "app/serializers"
+  group "Validators", "app/validators"
 
   # Fails `rspec` when coverage drops. Raise these as the suite grows.
-  minimum_coverage line: 95, branch: 85
-  coverage(:line) { minimum 80, per: :file }
+  coverage :line do
+    minimum 95
+    minimum 80, per: :file
+  end
+  coverage :branch, minimum: 85
+
+  # Any legacy SimpleCov setting creeping back in fails the run.
+  deprecations :raise
 end

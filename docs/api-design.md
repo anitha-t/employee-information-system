@@ -30,6 +30,7 @@ Client: separate React app (`web/`)
 | Pagination | `?page=&per_page=` (max 100). Responses include `meta: {page, per_page, total_count}`. |
 | Optimistic lock | Send `lock_version` on PATCH. A stale version returns `409`. |
 | Errors | `{"error": {"code": "...", "message": "...", "details": {"field.path": ["msg"]}}}` |
+| Status codes | 200, 201, 202, 204, 400 missing param, 401 unauthenticated, 403 forbidden, 404, 409 stale `lock_version`, 422 validation, 429 rate limited |
 | Audit | Every write records a `paper_trail` version with `whodunnit = current_user.id` |
 
 ---
@@ -40,10 +41,12 @@ Client: separate React app (`web/`)
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/session` | `{email_address, password}` → `{token, expires_at, user}` |
-| DELETE | `/session` | revoke the current token |
-| POST | `/passwords` | `{email_address}`. Sends a reset email. Also used as the invite for new hires. |
-| PUT | `/passwords/:token` | `{password}` |
+| POST | `/session` | `{email_address, password}` → `201 {token, expires_at, user}`. A wrong email or password returns `401 invalid_credentials`. So does a person whose employments are all separated. Rate limit: 10 per 3 minutes per IP (`429 rate_limited`). |
+| DELETE | `/session` | Revokes the current token → `204` |
+| POST | `/passwords` | `{email_address}` → always `202`, whether or not the account exists. Emails a reset link (`WEB_APP_URL/reset-password/:token`) valid for 1 hour. Rate limit: 5 per 15 minutes. |
+| PUT | `/passwords/:token` | `{password}` (min. 12 characters) → `204`. Signs the user out everywhere. An invalid or used token returns `422 invalid_token`. |
+
+Tokens are valid for 14 days. There is no sliding renewal. New-hire invites (`create_user: true`) will use a separate, longer-lived invite token when the hire flow is built.
 
 ### 2.2 My profile — any logged-in user
 

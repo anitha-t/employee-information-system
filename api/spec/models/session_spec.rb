@@ -15,4 +15,9 @@ RSpec.describe Session do
     session.update!(expires_at: 1.minute.ago)
     expect(described_class.find_by_token(token)).to be_nil
   end
+
+  it "truncates long user agents" do
+    session, _token = described_class.start!(user: user, user_agent: "x" * 500)
+    expect(session.user_agent.length).to eq(255)
+  end
 end

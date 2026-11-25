@@ -65,6 +65,12 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
 - Schema format is **`db/structure.sql`**, not `schema.rb`, because the schema uses exclusion constraints, generated columns, sequences and views.
 - Generators create UUID primary keys and RSpec specs and factories.
 - Errors are rendered by `ApiErrorHandling` (`app/controllers/concerns/`). Raise ActiveRecord or Pundit errors instead of rendering them by hand.
+- **Authentication** (`Authentication` concern) is required by default. Opt out per action with `allow_unauthenticated_access only: ...`. `current_user` and `Current.session` come from the bearer token.
+- API controllers inherit `Api::V1::BaseController`, which runs `verify_authorized`. Every action must call `authorize` (Pundit), or explicitly `skip_after_action :verify_authorized`. Policies inherit the deny-by-default `ApplicationPolicy`, which provides `hr?`.
+- **Audit trail:** paper_trail's whodunnit is set by `before_action :set_paper_trail_whodunnit`, which runs after authentication. paper_trail does not do this automatically.
+- JSON bodies are **not** auto-wrapped (`wrap_parameters false`). Read params as documented, e.g. `params.expect(:email_address)`.
+- Responses are built by POROs in `app/serializers` (`XSerializer.new(record).as_json`).
+- Dev login (seeded by `bin/rails db:seed`, development only): `hr@salary-management.local` / `dev-password-123`. Dev emails are written to `api/tmp/mails`.
 - CORS allows `WEB_ORIGINS` (default `http://localhost:5173`) on `/api/*`.
 - Audit versions are stored in jsonb (`object`, `object_changes`), plus `whodunnit`, `request_id` and `ip`.
 - Enums are string columns declared with `string_enum` (`ApplicationRecord`). They are validated, and accept `allow_nil: true` for optional values.
