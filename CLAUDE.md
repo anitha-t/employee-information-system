@@ -47,11 +47,18 @@ Run API commands from `api/`. The host needs Homebrew `libpq` on `PATH`, both fo
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 bin/setup --skip-server     # bundle install + db:prepare
 bin/rails db:migrate        # updates db/structure.sql (commit it)
-bundle exec rspec           # tests (RSpec + FactoryBot + shoulda-matchers)
-bin/rubocop                 # lint (rails-omakase)
+bundle exec rspec           # tests + coverage report at coverage/index.html
+COVERAGE=false bundle exec rspec spec/models/person_spec.rb   # single file, no coverage gate
+bin/rubocop                 # lint (omakase + rspec, rspec_rails, factory_bot, performance)
+bin/rubocop -a              # autocorrect safe offenses
 bin/brakeman -q --no-pager  # security scan
 bin/rails s                 # http://localhost:3000, health check at /up
 ```
+
+Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pass.
+- **Coverage gates** are set in `api/.simplecov`: line ≥ 95%, branch ≥ 85%, and every file ≥ 80% lines. A run below these fails.
+- **Tests:** new code comes with specs. Don't lower the coverage thresholds to make a run pass.
+- **RuboCop:** fix offenses rather than adding `rubocop:disable` comments.
 
 ## API code conventions
 
