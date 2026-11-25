@@ -2,8 +2,8 @@
 # check=error=true
 
 # This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t salary_management .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name salary_management salary_management
+# docker build -t employee_information_system .
+# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name employee_information_system employee_information_system
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 

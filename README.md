@@ -1,4 +1,4 @@
-# salary-management
+# employee-information-system
 
 ## Setup
 

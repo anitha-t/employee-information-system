@@ -23,7 +23,7 @@ In another terminal:
 API=http://localhost:3000/api/v1
 TOKEN=$(curl -s -X POST $API/session \
   -H 'Content-Type: application/json' \
-  -d '{"email_address":"hr@salary-management.local","password":"dev-password-123"}' | jq -r .token)
+  -d '{"email_address":"hr@employee-information-system.local","password":"dev-password-123"}' | jq -r .token)
 echo $TOKEN
 ```
 
@@ -85,7 +85,7 @@ curl -s "$API/reports/salary_stats" | jq
 
 # Signed in as an employee -> 403
 EMP_TOKEN=$(curl -s -X POST $API/session -H 'Content-Type: application/json' \
-  -d '{"email_address":"employee@salary-management.local","password":"dev-password-123"}' | jq -r .token)
+  -d '{"email_address":"employee@employee-information-system.local","password":"dev-password-123"}' | jq -r .token)
 curl -s "$API/reports/salary_stats" -H "Authorization: Bearer $EMP_TOKEN" | jq
 ```
 

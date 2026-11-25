@@ -3,7 +3,7 @@
 services:
   postgres:
     image: postgres:18
-    container_name: salary-management-postgres
+    container_name: employee-information-system-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-salary}

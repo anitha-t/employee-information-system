@@ -4,7 +4,7 @@ An employee and salary management system for ~10k employees (scaling to 20k+) ac
 
 ## Repo layout
 
-- `api/`: Rails 8.1 API-only backend (Ruby 3.4) with PostgreSQL. The Rails app module is `SalaryManagement`. Controllers live under `Api::V1`.
+- `api/`: Rails 8.1 API-only backend (Ruby 3.4) with PostgreSQL. The Rails app module is `EmployeeInformationSystem` (database names keep the original `salary_management_*` prefix). Controllers live under `Api::V1`.
 - `web/`: React SPA. Not scaffolded yet.
 - `docs/`: design docs. **Read these before changing the schema or the API.**
   - [docs/domain-model.md](docs/domain-model.md): entities, rules, constraints, how the reports are computed
@@ -82,7 +82,7 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
   - Raw SQL goes in constant templates with every value bound through `sanitize_sql_array`. Never interpolate runtime strings into SQL; Brakeman must stay at 0 warnings.
 - Money in JSON goes through `MoneySerializer.call(money)`. List endpoints use the `Paginated` concern and return `{data, meta}`.
 - `ActiveRecord::ExclusionViolation` renders as `422 conflicting_record`. The primary-emergency-contact constraint is `DEFERRABLE INITIALLY DEFERRED`. Specs that need it to fire must run `SET CONSTRAINTS … IMMEDIATE`, because test transactions never commit.
-- Dev logins (seeded by `bin/rails db:seed`, development only): `hr@salary-management.local` (HR) and `employee@salary-management.local` (employee), both with password `dev-password-123`. Dev emails are written to `api/tmp/mails`.
+- Dev logins (seeded by `bin/rails db:seed`, development only): `hr@employee-information-system.local` (HR) and `employee@employee-information-system.local` (employee), both with password `dev-password-123`. Dev emails are written to `api/tmp/mails`.
 - **Demo data** (`db/seeds/employees.rb`): names come from `db/seeds/first_names.txt` × `last_names.txt`.
   - Rows are built in memory and loaded with Postgres `COPY`, so validations and audit versions are skipped. The generator must keep the data valid itself, and `spec/seeds` checks it with model validations.
   - When changing the domain rules, update the generator too.
