@@ -92,18 +92,24 @@ Tokens are valid for 14 days. There is no sliding renewal. New-hire invites (`cr
 
 ### 2.6 Reference data
 
-Any logged-in user can read these. Only HR can write. Unused records can be deleted; otherwise they are deactivated with `is_active=false`.
+Read-only lists for pickers and filters. Any signed-in user can read them, except salary bands (HR-only, even for reads). Writes are not built yet. When they are, only HR will write, and records that are in use will be deactivated (`is_active=false`) rather than deleted.
 
-| Resource | Path | Notes |
+| Method | Path | Notes |
 |---|---|---|
-| Countries | `/countries` | read-only (seeded) |
-| Locations | `/locations` | |
-| Legal entities | `/legal_entities` | includes nested addresses |
-| Teams | `/teams?tree=true` | |
-| Grades | `/grades` | |
-| Salary bands | `/salary_bands?country=&grade_id=&as_of=` | HR-only, including reads |
-| Jobs | `/jobs?country=&q=` | |
-| Positions | `/positions?legal_entity_id=&team_id=&vacant=true` | `filled_head_count` and `vacancies` are computed |
+| GET | `/countries` | By name. `{id, iso_code, name, currency}` |
+| GET | `/locations?country=&include_inactive=` | By city. `{id, city, state, is_active, country}` |
+| GET | `/legal_entities?country=&include_inactive=` | By name. Includes `location`, `country` (with `currency`, which every compensation at that entity must use) and registered `addresses`. |
+| GET | `/teams?tree=&include_inactive=` | Flat by name with `parent_id`. `tree=true` nests `children`. A team whose parent is inactive becomes a root. |
+| GET | `/grades?include_inactive=` | By rank. `{id, code, name, rank, is_active}` |
+| GET | `/jobs?country=&q=&include_inactive=` | By title. Includes `min_grade` and `max_grade` (an assignment's grade must be in this range) and `countries` (ISO codes). `q` matches title or code. |
+| GET | `/positions?legal_entity_id=&team_id=&job_id=&country=&q=&vacant=&as_of=&page=&per_page=` | Positions open on `as_of` (default today), by code. Paginated, `meta` includes `as_of`. Each has `required_head_count`, `filled_head_count` (primary assignments active on `as_of`), `vacancies`, `job`, `team`, `legal_entity`, `country` and `location` (`null` when `is_remote`). `vacant=true` keeps positions with vacancies. A hire, transfer or promotion must use a position at the employment's legal entity. |
+| GET | `/salary_bands?country=&grade_id=&as_of=` | **HR only.** Bands in effect on `as_of` (default today), by country, then grade rank. `min` and `max` are Money. A salary outside the band is accepted with a warning. |
+
+Shared behaviour:
+- Lists return `{data: [...]}`. Positions also return `meta`.
+- Inactive records are hidden unless `include_inactive=true`.
+- `country` is an ISO code (case-insensitive). An unknown code returns `422`.
+- Flags accept `true`/`1` or `false`/`0`. Anything else returns `422`.
 
 ### 2.7 Reports — HR
 

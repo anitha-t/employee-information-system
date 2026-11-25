@@ -15,6 +15,9 @@ Rails.application.routes.draw do
       resources :employment_actions, only: %i[index show create update]
       resources :employees, only: %i[index show]
 
+      # Reference data: read-only lists (salary bands are HR-only).
+      resources :countries, :locations, :legal_entities, :teams, :grades, :jobs, :positions, :salary_bands, only: :index
+
       scope :reports, controller: :reports, as: :reports do
         get :salary_stats
         get :salary_by_job

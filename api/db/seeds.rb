@@ -21,6 +21,13 @@ if Rails.env.development?
   puts "Dev HR login: hr@employee-information-system.local / #{ENV.fetch('DEV_HR_PASSWORD', 'dev-password-123')}"
 end
 
+# Development-only demo org: grades, teams, offices, legal entities, salary
+# bands, jobs and positions. Idempotent, so it also tops up an existing database.
+if Rails.env.development?
+  require Rails.root.join("db/seeds/reference_data").to_s
+  Seeds::ReferenceData.new.call
+end
+
 # Development-only demo data: 10,000 employees with history (bulk insert,
 # takes seconds). Skipped when employees already exist. SEED_EMPLOYEES=0 skips it.
 if Rails.env.development? && ENV.fetch("SEED_EMPLOYEES", "10000").to_i.positive?

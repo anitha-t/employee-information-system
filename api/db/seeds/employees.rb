@@ -1,6 +1,6 @@
-# Bulk demo data: an org (legal entities, teams, grades, salary bands, jobs,
-# positions) and N employees with realistic history: hires, yearly salary
-# changes, promotions, separations and managers.
+# Bulk demo data: N employees with realistic history (hires, yearly salary
+# changes, promotions, separations and managers) on top of the
+# Seeds::ReferenceData org.
 #
 #   bin/rails db:seed                          # runs this in development (10,000 employees)
 #   bin/rails db:seed:employees COUNT=20000     # explicit, any size
@@ -16,44 +16,22 @@
 # exclusion constraints still check this on insert).
 #
 # Output is reproducible: the same COUNT and SEED give the same data.
+require_relative "reference_data"
+
 module Seeds
   class Employees
     TABLES = %i[people addresses emergency_contacts employments employment_actions assignments compensations].freeze
     NAMES_DIR = File.expand_path(__dir__)
     HISTORY_START = Date.new(2016, 1, 4)
 
-    ENTITIES = [
-      { code: "IN", name: "Acme India Pvt Ltd", city: "Bengaluru", state: "KA", postal_code: "560001",
-        share: 0.60, increment_month: 4, phone: ->(rng) { "+91#{rng.rand(7_000_000_000..9_999_999_999)}" } },
-      { code: "US", name: "Acme Inc", city: "San Francisco", state: "CA", postal_code: "94105",
-        share: 0.25, increment_month: 1, phone: ->(rng) { "+1415#{rng.rand(1_000_000..9_999_999)}" } },
-      { code: "AU", name: "Acme Australia Pty Ltd", city: "Sydney", state: "NSW", postal_code: "2000",
-        share: 0.15, increment_month: 7, phone: ->(rng) { "+614#{rng.rand(10_000_000..99_999_999)}" } }
-    ].freeze
-
-    # Grade 1 band (whole currency units); each grade above is 40% higher.
-    G1_BAND = { "IN" => [ 600_000, 1_000_000 ], "US" => [ 60_000, 85_000 ], "AU" => [ 65_000, 90_000 ] }.freeze
-    GRADE_STEP = 1.4
-    GRADE_COUNT = 8
+    # How employees spread across the reference-data entities, the month of
+    # the yearly salary review, and phone formats.
+    PROFILES = {
+      "IN" => { share: 0.60, increment_month: 4, phone: ->(rng) { "+91#{rng.rand(7_000_000_000..9_999_999_999)}" } },
+      "US" => { share: 0.25, increment_month: 1, phone: ->(rng) { "+1415#{rng.rand(1_000_000..9_999_999)}" } },
+      "AU" => { share: 0.15, increment_month: 7, phone: ->(rng) { "+614#{rng.rand(10_000_000..99_999_999)}" } }
+    }.freeze
     ROUND_TO = { "IN" => 1_000, "US" => 100, "AU" => 100 }.freeze
-
-    ENGINEERING_TEAMS = %w[Platform Payments Mobile Data].freeze
-    TEAMS = { "Engineering" => ENGINEERING_TEAMS, "Sales" => [], "People" => [], "Finance" => [], "Operations" => [] }.freeze
-
-    JobSpec = Data.define(:code, :title, :level, :min_grade, :max_grade, :teams, :weight, :manager)
-    JOBS = [
-      JobSpec.new("SWE", "Software Engineer", "IC2", 1, 3, ENGINEERING_TEAMS, 30, false),
-      JobSpec.new("SSWE", "Senior Software Engineer", "IC3", 3, 5, ENGINEERING_TEAMS, 18, false),
-      JobSpec.new("STAFF", "Staff Engineer", "IC4", 5, 7, ENGINEERING_TEAMS, 4, false),
-      JobSpec.new("EM", "Engineering Manager", "M1", 5, 7, ENGINEERING_TEAMS, 4, true),
-      JobSpec.new("DS", "Data Scientist", "IC3", 2, 5, %w[Data], 5, false),
-      JobSpec.new("SALES", "Sales Executive", "IC2", 1, 4, %w[Sales], 12, false),
-      JobSpec.new("AM", "Account Manager", "IC3", 3, 5, %w[Sales], 6, false),
-      JobSpec.new("HRG", "HR Generalist", "IC2", 2, 4, %w[People], 5, false),
-      JobSpec.new("FIN", "Financial Analyst", "IC2", 2, 5, %w[Finance], 5, false),
-      JobSpec.new("OPS", "Operations Associate", "IC1", 1, 3, %w[Operations], 9, false),
-      JobSpec.new("DIR", "Director", "M3", 7, 8, %w[Engineering Sales], 2, true)
-    ].freeze
 
     RELATIONSHIPS = %w[spouse parent sibling partner friend].freeze
     STREETS = [ "MG Road", "Main Street", "George Street", "Park Avenue", "Church Street", "High Street", "Lake View Road" ].freeze
@@ -98,75 +76,18 @@ module Seeds
 
     def build_org
       @hr_user = @created_by || User.find_by(role: "hr") || raise("Create an HR user first (bin/rails db:seed in development)")
-      @grades = (1..GRADE_COUNT).map do |rank|
-        Grade.find_or_create_by!(code: "G#{rank}") { |grade| grade.name = "Grade #{rank}"; grade.rank = rank }
-      end
-      @teams = build_teams
-      @entities = ENTITIES.map { |config| build_entity(config) }
-      @jobs = JOBS.map { |job| [ job, build_job(job) ] }
-      @positions = build_positions
+      org = ReferenceData.new(logger: nil).call
+      @grades = org.grades
+      @entities = org.entities.map { |entity| entity.merge(PROFILES.fetch(entity[:code])) }
+      @jobs = org.jobs
+      @positions = org.positions
       @first_names = read_names("first_names.txt")
       @last_names = read_names("last_names.txt")
       @full_names = @first_names.product(@last_names).shuffle(random: @rng)
     end
 
-    def build_teams
-      TEAMS.each_with_object({}) do |(name, children), teams|
-        parent = Team.find_or_create_by!(name: name, parent_id: nil)
-        teams[name] = parent
-        children.each { |child| teams[child] = Team.find_or_create_by!(name: child, parent: parent) }
-      end
-    end
-
-    def build_entity(config)
-      country = Country.find_by!(iso_code: config[:code])
-      location = Location.find_or_create_by!(country: country, city: config[:city]) { |l| l.state = config[:state] }
-      entity = LegalEntity.find_or_create_by!(name: config[:name]) do |e|
-        e.location = location
-        e.effective_from = HISTORY_START.beginning_of_year
-      end
-      @grades.each do |grade|
-        min, max = band_for(config[:code], grade.rank)
-        SalaryBand.find_or_create_by!(grade: grade, country: country) do |band|
-          band.assign_attributes(currency: country.currency, min_cents: min * 100, max_cents: max * 100,
-                                 effective_from: HISTORY_START.beginning_of_year)
-        end
-      end
-      config.merge(country: country, location: location, entity: entity)
-    end
-
-    def build_job(job)
-      record = Job.find_or_create_by!(code: job.code) do |j|
-        j.title = job.title
-        j.level = job.level
-        j.min_grade = @grades[job.min_grade - 1]
-        j.max_grade = @grades[job.max_grade - 1]
-      end
-      Country.where(iso_code: ENTITIES.pluck(:code)).find_each { |country| JobCountry.find_or_create_by!(job: record, country: country) }
-      record
-    end
-
-    def build_positions
-      @entities.product(@jobs).each_with_object({}) do |(entity, (job, record)), positions|
-        job.teams.each do |team_name|
-          code = "#{entity[:code]}-#{job.code}-#{team_name.upcase}"
-          positions[[ entity[:code], job.code, team_name ]] = Position.find_or_create_by!(code: code) do |p|
-            p.assign_attributes(name: "#{job.title}, #{team_name} (#{entity[:code]})", job: record, team: @teams.fetch(team_name),
-                                legal_entity: entity[:entity], location: entity[:location],
-                                effective_from: HISTORY_START.beginning_of_year, required_head_count: 0)
-          end
-        end
-      end
-    end
-
     def read_names(file)
       File.readlines(File.join(NAMES_DIR, file), chomp: true).map(&:strip).reject(&:empty?).uniq
-    end
-
-    def band_for(country_code, rank)
-      min, max = G1_BAND.fetch(country_code)
-      factor = GRADE_STEP**(rank - 1)
-      [ (min * factor).round(-3), (max * factor).round(-3) ]
     end
 
     # --- employees (bulk) ---------------------------------------------------
@@ -265,7 +186,7 @@ module Seeds
     def build_history(entity, job, job_record, position, employment_id, hire_date, last_working_date)
       code = entity[:code]
       grade = job.min_grade + (job.max_grade > job.min_grade && @rng.rand < 0.3 ? 1 : 0)
-      min, max = band_for(code, grade)
+      min, max = ReferenceData.band_for(code, grade)
       salary = round_salary(code, min + (@rng.rand * (max - min) * 0.6))
       end_date = last_working_date && last_working_date + 1
 

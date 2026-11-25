@@ -10,7 +10,14 @@ RSpec.describe "Malformed query parameters" do
     "/api/v1/employment_actions" => %i[employment_id action_type created_by reviewed_by country effective_from effective_to page per_page],
     "/api/v1/reports/salary_stats" => %i[country as_of employment_type],
     "/api/v1/reports/salary_by_job" => %i[country job_title as_of employment_type],
-    "/api/v1/reports/salary_spend" => %i[country year breakdown]
+    "/api/v1/reports/salary_spend" => %i[country year breakdown],
+    "/api/v1/locations" => %i[country include_inactive],
+    "/api/v1/legal_entities" => %i[country include_inactive],
+    "/api/v1/teams" => %i[tree include_inactive],
+    "/api/v1/grades" => %i[include_inactive],
+    "/api/v1/jobs" => %i[country q include_inactive],
+    "/api/v1/positions" => %i[legal_entity_id team_id job_id country q vacant as_of page per_page],
+    "/api/v1/salary_bands" => %i[country grade_id as_of]
   }.each do |path, keys|
     keys.each do |key|
       it "#{path} rejects #{key} as a list or object" do

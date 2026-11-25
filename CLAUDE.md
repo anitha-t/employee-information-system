@@ -56,6 +56,7 @@ bin/rails s                 # http://localhost:3000, health check at /up
 bin/rails db:seed           # countries + dev logins + 10,000 demo employees (dev only, ~6s, skipped if employees exist)
 bin/rails db:seed:replant   # wipe all data and reseed
 bin/rails db:seed:employees COUNT=20000 SEED=42   # bulk demo employees at any size (refuses in production)
+bin/rails db:seed:reference_data                  # demo org only: grades, teams, offices, entities, bands, jobs, positions (idempotent)
 SEED_EMPLOYEES=0 bin/rails db:seed                # reference data and logins only
 ```
 
@@ -82,7 +83,11 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
   - Raw SQL goes in constant templates with every value bound through `sanitize_sql_array`. Never interpolate runtime strings into SQL; Brakeman must stay at 0 warnings.
 - Money in JSON goes through `MoneySerializer.call(money)`. List endpoints use the `Paginated` concern and return `{data, meta}`.
 - `ActiveRecord::ExclusionViolation` renders as `422 conflicting_record`. The primary-emergency-contact constraint is `DEFERRABLE INITIALLY DEFERRED`. Specs that need it to fire must run `SET CONSTRAINTS … IMMEDIATE`, because test transactions never commit.
+- **Reference data** (`/countries`, `/locations`, `/legal_entities`, `/teams`, `/grades`, `/jobs`, `/positions`, `/salary_bands`) is read-only and controllers inherit `ReferenceDataController` (`only_active`, `country`, `render_list`). Salary bands are HR-only, everything else is readable by any signed-in user (`ReferenceDataPolicy`). Flags go through `boolean_param`.
 - Dev logins (seeded by `bin/rails db:seed`, development only): `hr@employee-information-system.local` (HR) and `employee@employee-information-system.local` (employee), both with password `dev-password-123`. Dev emails are written to `api/tmp/mails`.
+- **Demo org** (`db/seeds/reference_data.rb`, `Seeds::ReferenceData`): grades, teams, offices, legal entities with registered addresses, salary bands, jobs and positions, including some open or remote seats.
+  - It is idempotent: it finds records by natural key and only creates or fills in what's missing, so `db:seed` tops up an existing dev DB.
+  - `Seeds::Employees` builds on the org it returns.
 - **Demo data** (`db/seeds/employees.rb`): names come from `db/seeds/first_names.txt` × `last_names.txt`.
   - Rows are built in memory and loaded with Postgres `COPY`, so validations and audit versions are skipped. The generator must keep the data valid itself, and `spec/seeds` checks it with model validations.
   - When changing the domain rules, update the generator too.

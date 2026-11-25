@@ -3,6 +3,8 @@
 # reach a query unexpectedly. These accept only a single string and answer
 # 422 for anything else.
 module QueryParams
+  BOOLEANS = { "true" => true, "1" => true, "false" => false, "0" => false }.freeze
+
   private
 
   # The string value, or nil when absent or blank.
@@ -33,5 +35,13 @@ module QueryParams
     return default if value.nil?
 
     Integer(value, 10, exception: false) || raise(ValidationError.for(key, "must be a whole number"))
+  end
+
+  # true / 1 or false / 0; anything else is a 422.
+  def boolean_param(key, default: false)
+    value = string_param(key)
+    return default if value.nil?
+
+    BOOLEANS.fetch(value.downcase) { raise ValidationError.for(key, "must be true or false") }
   end
 end
