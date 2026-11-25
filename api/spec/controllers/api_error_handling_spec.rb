@@ -11,6 +11,7 @@ RSpec.describe ApiErrorHandling do
       when "missing"   then params.require(:person)
       when "forbidden" then raise Pundit::NotAuthorizedError
       when "invalid"   then Person.create!(first_name: "")
+      when "overlap"   then raise ActiveRecord::ExclusionViolation
       end
     end
   end
@@ -19,7 +20,8 @@ RSpec.describe ApiErrorHandling do
     "not_found" => [ 404, "not_found" ],
     "stale"     => [ 409, "stale_object" ],
     "missing"   => [ 400, "bad_request" ],
-    "forbidden" => [ 403, "forbidden" ]
+    "forbidden" => [ 403, "forbidden" ],
+    "overlap"   => [ 422, "conflicting_record" ]
   }.each do |trigger, (status, code)|
     it "renders #{code} with status #{status}" do
       get :index, params: { raise: trigger }

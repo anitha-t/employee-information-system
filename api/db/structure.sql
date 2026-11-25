@@ -419,7 +419,7 @@ CREATE TABLE public.users (
     role character varying DEFAULT 'employee'::character varying NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    CONSTRAINT users_valid_role CHECK (((role)::text = ANY ((ARRAY['hr'::character varying, 'employee'::character varying])::text[])))
+    CONSTRAINT users_valid_role CHECK (((role)::text = ANY (ARRAY[('hr'::character varying)::text, ('employee'::character varying)::text])))
 );
 
 
@@ -495,6 +495,14 @@ ALTER TABLE ONLY public.compensations
 
 ALTER TABLE ONLY public.countries
     ADD CONSTRAINT countries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: emergency_contacts emergency_contacts_one_primary_per_person; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.emergency_contacts
+    ADD CONSTRAINT emergency_contacts_one_primary_per_person EXCLUDE USING gist (person_id WITH =) WHERE (is_primary) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
@@ -708,13 +716,6 @@ CREATE UNIQUE INDEX index_countries_on_iso_code ON public.countries USING btree 
 --
 
 CREATE INDEX index_emergency_contacts_on_person_id ON public.emergency_contacts USING btree (person_id);
-
-
---
--- Name: index_emergency_contacts_one_primary_per_person; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_emergency_contacts_one_primary_per_person ON public.emergency_contacts USING btree (person_id) WHERE is_primary;
 
 
 --
@@ -1236,6 +1237,7 @@ ALTER TABLE ONLY public.users
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261125130000'),
 ('20261125120200'),
 ('20261125120100'),
 ('20261125120000'),

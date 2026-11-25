@@ -4,8 +4,10 @@ class Person < ApplicationRecord
 
   GENDERS = %w[female male non_binary undisclosed].freeze
 
-  has_many :addresses, as: :addressable, dependent: :destroy
-  has_many :emergency_contacts, dependent: :destroy
+  # index_errors keys nested errors by position in the submitted array,
+  # e.g. "addresses[1].postal_code" (docs/api-design.md §3.1).
+  has_many :addresses, as: :addressable, dependent: :destroy, index_errors: :nested_attributes_order
+  has_many :emergency_contacts, dependent: :destroy, index_errors: :nested_attributes_order
   has_many :employments, dependent: :restrict_with_error
   has_one :user, dependent: :restrict_with_error
 

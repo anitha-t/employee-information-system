@@ -148,7 +148,26 @@ Items not sent are left unchanged. The whole request is one transaction: either 
 ```
 → `200` with the full profile, including the new `lock_version`.
 
-Validation errors are keyed by path, e.g. `"addresses[0].postal_code"`. Nested `id`s are scoped to the person, so any other id returns `404`.
+Rules:
+- **`lock_version` is required.** A missing one returns `400`.
+- **The person's `lock_version` guards the whole profile.** It is checked and incremented on every save, even when only addresses or contacts change. A stale value returns `409 stale_object`, and nothing is saved.
+- **Fields the user may not change return `403 forbidden_fields`**, with the offending fields in `details`, e.g. `{"first_name": ["cannot be changed by you"], "dob": [...]}`. Nothing is saved.
+  - Employees may send: `preferred_name, phone_number, email, addresses, emergency_contacts`.
+  - HR may also send `first_name, last_name, dob, gender`.
+- **Validation errors return `422`**, keyed by the position in the submitted array, e.g. `"addresses[1].line1"`.
+- **Nested `id`s are scoped to the person.** Any other id returns `404`.
+- **Address types:** `home` or `mailing` for people. `registered` is only for legal entities.
+- **One primary emergency contact.** Moving the primary flag between contacts in one request is allowed, because the check runs at commit.
+
+Response shape (GET and PATCH):
+```json
+{ "id": "…", "lock_version": 1, "first_name": "Anitha", "last_name": "T", "full_name": "Anitha T",
+  "preferred_name": "Anu", "email": "…", "phone_number": "+91…", "dob": "1990-05-01", "gender": "female",
+  "addresses": [ { "id": "…", "address_type": "home", "line1": "…", "line2": null, "city": "…", "state": null,
+                   "postal_code": "…", "country": { "id": "…", "iso_code": "IN", "name": "India" } } ],
+  "emergency_contacts": [ { "id": "…", "name": "Ravi", "relationship": "spouse", "phone_number": "+91…", "is_primary": true } ] }
+```
+Emergency contacts are listed primary first. Employees can read their own legal name, date of birth and gender, but not change them.
 
 ### 3.2 `POST /employment_actions`
 

@@ -76,6 +76,15 @@ RSpec.describe Person do
       expect(person.errors[:emergency_contacts]).to include("can have only one primary contact")
     end
 
+    it "enforces one primary contact in the database at commit time" do
+      create(:emergency_contact, person: person, is_primary: true)
+      # Tests never commit; force the deferred check to run now.
+      ActiveRecord::Base.connection.execute("SET CONSTRAINTS emergency_contacts_one_primary_per_person IMMEDIATE")
+      expect {
+        EmergencyContact.insert_all!([ { person_id: person.id, name: "B", phone_number: "+919822222222", is_primary: true } ])
+      }.to raise_error(ActiveRecord::ExclusionViolation)
+    end
+
     it "does not let one person's update touch another person's address" do
       foreign = create(:address)
       expect {

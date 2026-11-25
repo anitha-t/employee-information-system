@@ -22,6 +22,18 @@ module ApiErrorHandling
       render_error :bad_request, "bad_request", e.message
     end
 
+    # Raised by DB exclusion constraints (overlapping dates, two primaries)
+    # when a concurrent change slips past model validations.
+    rescue_from ActiveRecord::ExclusionViolation do
+      render_error :unprocessable_content, "conflicting_record",
+                   "This change conflicts with existing data. Reload and try again."
+    end
+
+    rescue_from ForbiddenAttributesError do |e|
+      render_error :forbidden, "forbidden_fields", e.message,
+                   details: e.attributes.index_with { [ "cannot be changed by you" ] }
+    end
+
     rescue_from Pundit::NotAuthorizedError do
       render_error :forbidden, "forbidden", "You are not allowed to perform this action"
     end
