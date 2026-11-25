@@ -5,7 +5,7 @@ An employee and salary management system for ~10k employees (scaling to 20k+) ac
 ## Repo layout
 
 - `api/`: Rails 8.1 API-only backend (Ruby 3.4) with PostgreSQL. The Rails app module is `EmployeeInformationSystem` (database names keep the original `salary_management_*` prefix). Controllers live under `Api::V1`.
-- `web/`: React SPA. Not scaffolded yet.
+- `web/`: React SPA (Vite, TypeScript). Read [AGENTS.md](AGENTS.md) before working there. Design: [docs/web-design.md](docs/web-design.md).
 - `docs/`: design docs. **Read these before changing the schema or the API.**
   - [docs/domain-model.md](docs/domain-model.md): entities, rules, constraints, how the reports are computed
   - [docs/er-diagram.md](docs/er-diagram.md): ER diagram with columns
@@ -30,7 +30,7 @@ When the schema or the API changes, update the matching doc in the same change.
 ## Conventions
 
 - All primary keys are UUIDs.
-- The API lives at `/api/v1`, uses snake_case JSON and bearer-token auth.
+- The API lives at `/api/v1` and uses snake_case JSON. Auth is an httpOnly session cookie (web app) or a bearer token (scripts).
 - Editable tables have `lock_version`. A stale write returns `409`.
 - Errors use the shape `{"error": {"code", "message", "details": {"field.path": [...]}}}`.
 - Multi-table writes live in service objects (`app/services/`) and run in one transaction.
@@ -60,7 +60,15 @@ bin/rails db:seed:reference_data                  # demo org only: grades, teams
 SEED_EMPLOYEES=0 bin/rails db:seed                # reference data and logins only
 ```
 
-Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pass.
+Run web commands from `web/` (Node 22+). `npm run dev` serves http://localhost:5173 and proxies `/api` to the Rails server on :3000:
+
+```sh
+npm install
+npm run dev
+npm run lint && npm run typecheck && npm test
+```
+
+Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pass. For `web/` changes, `npm run lint`, `npm run typecheck` and `npm test` must pass too.
 - **Coverage gates** are set in `api/.simplecov`: line ≥ 95%, branch ≥ 85%, and every file ≥ 80% lines. A run below these fails.
 - **Tests:** new code comes with specs. Don't lower the coverage thresholds to make a run pass.
 - **RuboCop:** fix offenses rather than adding `rubocop:disable` comments.
@@ -70,7 +78,7 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
 - Schema format is **`db/structure.sql`**, not `schema.rb`, because the schema uses exclusion constraints, generated columns, sequences and views.
 - Generators create UUID primary keys and RSpec specs and factories.
 - Errors are rendered by `ApiErrorHandling` (`app/controllers/concerns/`). Raise ActiveRecord or Pundit errors instead of rendering them by hand.
-- **Authentication** (`Authentication` concern) is required by default. Opt out per action with `allow_unauthenticated_access only: ...`. `current_user` and `Current.session` come from the bearer token.
+- **Authentication** (`Authentication` concern) is required by default. Opt out per action with `allow_unauthenticated_access only: ...`. `current_user` and `Current.session` come from the bearer token, or else from the signed `session_token` cookie set by `POST /session`. Cookie-authenticated non-GET requests must send `X-Requested-With: XMLHttpRequest`, otherwise they get `403 csrf_failed`.
 - API controllers inherit `Api::V1::BaseController`, which runs `verify_authorized`. Every action must call `authorize` (Pundit), or explicitly `skip_after_action :verify_authorized`. Policies inherit the deny-by-default `ApplicationPolicy`, which provides `hr?`.
 - **Audit trail:** paper_trail's whodunnit is set by `before_action :set_paper_trail_whodunnit`, which runs after authentication. paper_trail does not do this automatically.
 - JSON bodies are **not** auto-wrapped (`wrap_parameters false`). Read params as documented, e.g. `params.expect(:email_address)`.
@@ -91,7 +99,7 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
 - **Demo data** (`db/seeds/employees.rb`): names come from `db/seeds/first_names.txt` × `last_names.txt`.
   - Rows are built in memory and loaded with Postgres `COPY`, so validations and audit versions are skipped. The generator must keep the data valid itself, and `spec/seeds` checks it with model validations.
   - When changing the domain rules, update the generator too.
-- CORS allows `WEB_ORIGINS` (default `http://localhost:5173`) on `/api/*`.
+- CORS allows `WEB_ORIGINS` (default `http://localhost:5173`) on `/api/*`, with credentials.
 - Audit versions are stored in jsonb (`object`, `object_changes`), plus `whodunnit`, `request_id` and `ip`.
 - Enums are string columns declared with `string_enum` (`ApplicationRecord`). They are validated, and accept `allow_nil: true` for optional values.
 - Effective-dated models include the `EffectiveDated` concern (`active_on(date)`, `current`, `open_ended`).

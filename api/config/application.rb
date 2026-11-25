@@ -41,6 +41,9 @@ module EmployeeInformationSystem
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
 
+    # The React app signs in with an httpOnly session cookie (Authentication).
+    config.middleware.use ActionDispatch::Cookies
+
     # UUID primary keys everywhere; RSpec + FactoryBot for generators.
     config.generators do |g|
       g.orm :active_record, primary_key_type: :uuid

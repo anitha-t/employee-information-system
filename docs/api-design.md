@@ -10,7 +10,7 @@ Client: separate React app (`web/`)
 |---|---|
 | D1 / D2 | There is no approval workflow and no maker-checker. Actions apply immediately. An optional reviewer is stored for future notifications. |
 | D3 | Employee number is a global sequence: `E000123`. |
-| D4 | Bearer-token auth. CORS (`rack-cors`) allows the React origin. |
+| D4 | Session auth. The web app uses an httpOnly session cookie; scripts use a bearer token. CORS (`rack-cors`, with credentials) allows the React origin. |
 | — | Profile edits (contact info, addresses, emergency contacts) go through **one API** with nested create, update and delete. |
 | — | Employee search uses **Postgres full-text search** (`pg_search`). |
 | — | All employment changes go through **one action API** (create and update), with a full audit trail. |
@@ -22,7 +22,7 @@ Client: separate React app (`web/`)
 | Topic | Convention |
 |---|---|
 | Base path | `/api/v1`, JSON, snake_case |
-| Auth | `Authorization: Bearer <token>` (Session table, token digest stored) |
+| Auth | The signed, httpOnly `session_token` cookie (web app) or `Authorization: Bearer <token>` (scripts). Both map to a Session row, and only the token's digest is stored. Requests that change data and authenticate by cookie must send `X-Requested-With: XMLHttpRequest` (CSRF), otherwise they get `403 csrf_failed`. |
 | Roles | `hr` and `employee`, enforced by Pundit policies |
 | IDs | UUID strings |
 | Dates | ISO-8601. Datetimes are UTC. |
@@ -41,8 +41,8 @@ Client: separate React app (`web/`)
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/session` | `{email_address, password}` → `201 {token, expires_at, user}`. A wrong email or password returns `401 invalid_credentials`. So does a person whose employments are all separated. Rate limit: 10 per 3 minutes per IP (`429 rate_limited`). |
-| DELETE | `/session` | Revokes the current token → `204` |
+| POST | `/session` | `{email_address, password}` → `201 {token, expires_at, user}`. Also sets the `session_token` cookie (httpOnly, `SameSite=Lax`, `Secure` in production, expires with the session). The web app ignores `token`. A wrong email or password returns `401 invalid_credentials`. So does a person whose employments are all separated. Rate limit: 10 per 3 minutes per IP (`429 rate_limited`). |
+| DELETE | `/session` | Revokes the current session and clears the cookie → `204` |
 | POST | `/passwords` | `{email_address}` → always `202`, whether or not the account exists. Emails a reset link (`WEB_APP_URL/reset-password/:token`) valid for 1 hour. Rate limit: 5 per 15 minutes. |
 | PUT | `/passwords/:token` | `{password}` (min. 12 characters) → `204`. Signs the user out everywhere. An invalid or used token returns `422 invalid_token`. |
 
