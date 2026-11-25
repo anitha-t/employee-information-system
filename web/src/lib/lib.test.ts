@@ -9,7 +9,7 @@ describe('formatMoney', () => {
   it('groups each currency the way its country does', () => {
     expect(formatMoney({ amount: '1850000.00', currency: 'INR' })).toBe('₹18,50,000')
     expect(formatMoney({ amount: '185000.00', currency: 'USD' })).toBe('$185,000')
-    expect(formatMoney({ amount: '95000.50', currency: 'AUD' }, { cents: true })).toBe('$95,000.50')
+    expect(formatMoney({ amount: '95000.50', currency: 'AUD' }, { cents: true })).toBe('A$95,000.50')
     expect(formatMoney(null)).toBe('—')
   })
 })

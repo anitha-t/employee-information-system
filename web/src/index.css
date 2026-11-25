@@ -19,6 +19,12 @@
   --warning: #8a5a00;
   --warning-soft: #fff4dc;
 
+  /* Charts (dataviz reference palette, validated on --surface) */
+  --viz-series: #257de0;
+  --viz-series-hover: #1b64be;
+  --viz-grid: #e7e7e7;
+  --viz-axis: #c2c2c2;
+
   --radius: 8px;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 8%);
   --focus: 0 0 0 3px rgb(47 91 211 / 35%);
@@ -49,6 +55,10 @@
     --success-soft: #16301f;
     --warning: #f0c36a;
     --warning-soft: #362b12;
+    --viz-series: #338ced;
+    --viz-series-hover: #519ced;
+    --viz-grid: #303030;
+    --viz-axis: #474747;
     --shadow: none;
   }
 }
@@ -251,3 +261,59 @@ input:disabled, select:disabled { background: var(--surface-muted); color: var(-
 .inline-choice { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.9rem; }
 .inline-choice input { width: auto; min-height: auto; }
 input[readonly] { background: var(--surface-muted); color: var(--text-muted); }
+
+/* HR dashboard tabs */
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+.tab {
+  padding: 0.6rem 1rem; margin-bottom: -1px; border-bottom: 2px solid transparent;
+  color: var(--text-muted); font-weight: 600; text-decoration: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Reports */
+.report-filters { margin-bottom: 0.5rem; }
+.report-filters input { min-width: 160px; }
+.report { margin-top: 1.75rem; }
+.report h2 { font-size: 1.15rem; margin-bottom: 0.75rem; }
+.report h3 { font-size: 1rem; margin: 0; }
+.report-group { margin-bottom: 1.25rem; }
+.report-group > h3 { margin-bottom: 0.5rem; }
+.is-stale { opacity: 0.55; transition: opacity 0.15s; }
+.skeleton-card { padding: 1.25rem; min-height: 140px; }
+
+.stat-tiles { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.9rem 1.25rem; align-items: end; }
+.stat-tiles dt { color: var(--text-muted); font-size: 0.8rem; }
+.stat-tiles dd { margin: 0; font-weight: 600; font-size: 1.05rem; }
+.stat-tiles .stat-lead { grid-column: span 2; }
+.stat-tiles .stat-lead dd { font-size: 1.8rem; line-height: 1.2; }
+.stat-headline { margin: 0 0 0.75rem; }
+.stat-headline strong { font-size: 1.8rem; }
+
+.range-col { width: 22%; min-width: 140px; }
+.range-bar { position: relative; height: 8px; border-radius: 4px; background: var(--surface-muted); }
+.range-fill { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--viz-series); opacity: 0.45; }
+.range-median {
+  position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
+  background: var(--viz-series); box-shadow: 0 0 0 2px var(--surface);
+}
+
+.spend-cards { display: grid; gap: 1rem; }
+.spend-chart { position: relative; }
+.spend-chart svg { display: block; overflow: visible; }
+.table tbody th { font: inherit; text-transform: none; letter-spacing: normal; color: var(--text); background: none; font-weight: 600; }
+.chart-grid { stroke: var(--viz-grid); stroke-width: 1; }
+.chart-baseline { stroke: var(--viz-axis); stroke-width: 1; }
+.chart-tick { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart-bar { fill: var(--viz-series); }
+.chart-hit { fill: transparent; }
+.chart-column { outline: none; cursor: default; }
+.chart-column.is-active .chart-bar, .chart-column:focus-visible .chart-bar { fill: var(--viz-series-hover); }
+.chart-column:focus-visible .chart-hit { fill: var(--accent-soft); }
+.chart-tooltip {
+  position: absolute; top: 0; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap;
+  display: flex; flex-direction: column; padding: 0.4rem 0.6rem; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 0.85rem;
+}
+.chart-tooltip span { color: var(--text-muted); font-size: 0.8rem; }
+.compact-table th, .compact-table td { padding: 0.4rem 0.75rem; }

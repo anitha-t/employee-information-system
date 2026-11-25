@@ -1,10 +1,11 @@
 # Web App Design
 
-Status: **Phases 1 and 2 built** (`web/`)
+Status: **Phases 1–3 built** (`web/`)
 Depends on: [api-design.md](api-design.md), [AGENTS.md](../AGENTS.md) (frontend rules)
 Scope:
 - **Phase 1:** sign-in, the dashboards and the HR "new hire" flow.
 - **Phase 2:** editing profiles, and the HR employee detail and edit pages (§5).
+- **Phase 3:** salary reports on the HR dashboard (§6).
 
 ## 1. Pages and routes
 
@@ -14,7 +15,8 @@ Scope:
 | `/forgot-password` | Request a reset link | Signed out | `POST /passwords` |
 | `/reset-password/:token` | Set a new password (link from the email) | Signed out | `PUT /passwords/:token` |
 | `/` | Redirects to `/dashboard` | — | — |
-| `/dashboard` | **Employee:** my info. **HR:** employee search and "New hire". | Signed in | see §3 |
+| `/dashboard` | **Employee:** my info. **HR:** the Employees tab: search and "New hire". | Signed in | see §3 |
+| `/dashboard/reports` | **HR:** the Reports tab | HR | `GET /reports/*` (§6) |
 | `/profile` | My info (the employee dashboard view; HR reaches it from the user menu) | Signed in | `GET /me`, `GET /me/profile` |
 | `/profile/edit` | Edit my profile | Signed in | `GET` / `PATCH /me/profile`, `GET /countries` (§5) |
 | `/employees/new` | New hire form | HR | `POST /employment_actions` and reference data (§4) |
@@ -28,7 +30,7 @@ Routing rules:
 - A signed-in user who opens `/login`, `/forgot-password` or `/reset-password` is redirected to `/dashboard`.
 - After sign-in: go to `next` if it is a same-app path (starts with `/`, not `//`), otherwise `/dashboard`.
 
-Not planned yet: employment changes after hire (promotion, transfer, salary change, separation), the audit trail, the directory and reports.
+Not planned yet: employment changes after hire (promotion, transfer, salary change, separation), the audit trail and the directory.
 
 ## 2. Sign-in pages
 
@@ -50,7 +52,7 @@ All three use `AuthLayout`: a centred card with the app name, no navigation.
 
 - Fields: `email_address` (required, email format) and `password` (required). Validated with Zod before submit.
 - Submit → `POST /session`. The button shows a spinner and is disabled while the request runs.
-- `201` → the browser now holds the session cookie (§7). Invalidate `["me"]` and navigate as in §1.
+- `201` → the browser now holds the session cookie (§8). Invalidate `["me"]` and navigate as in §1.
 - `401 invalid_credentials` → a form-level error: "Email or password is incorrect." The password field is cleared. Separated employees get this same message (the API doesn't distinguish them).
 - `429 rate_limited` → "Too many sign-in attempts. Try again in a few minutes."
 - Network or 5xx error → "Something went wrong. Try again."
@@ -147,7 +149,7 @@ Data: `GET /employees?q=&country=&status=&employment_type=&page=&per_page=25`.
 - **Rows:**
   - Name shows `person.display_name`, with `full_name` underneath when it differs.
   - Job · Team uses `job.title` and `team.name`.
-  - Salary uses `annual_salary`, formatted in its own currency (§8).
+  - Salary uses `annual_salary`, formatted in its own currency (§9).
   - The name links to `/employees/:employmentId` (§5.2).
 - **Pagination:** from `meta.total_count`, 25 per page.
 - **Page states:**
@@ -309,7 +311,77 @@ Results:
 - The manager's name links to the manager's own page.
 - **Not here yet:** history and employment changes after hire. These come with the employment-actions UI.
 
-## 6. Components
+## 6. Reports (HR dashboard, phase 3)
+
+### 6.1 Tabs
+
+The HR dashboard has two tabs, **Reports | Employees**. They are links, so each tab has its own URL and the browser's back button works.
+
+| Tab | Route | Content |
+|---|---|---|
+| Reports | `/dashboard/reports` | This section |
+| Employees | `/dashboard` (default) | §3.2, unchanged. Existing links and bookmarks keep working. |
+
+Employees never see the tabs. `/dashboard/reports` is HR-only, like the API.
+
+### 6.2 Layout
+
+```
+ [Reports] [Employees]                                                    
+ Country [All ▾]  As of [2026-11-25]  Type [All ▾]  Year [2026 ▾]  Job title [filter…]
+ Amounts are per country, in its own currency. They are never added across countries.
+
+ Salary by country · as of 25 Nov 2026
+ ┌─ India · INR ─────────────┐ ┌─ United States · USD ─────┐ ┌─ Australia · AUD ───┐
+ │ Headcount 5,803           │ │ …                         │ │ …                   │
+ │ Median ₹14,52,000         │ │                           │ │                     │
+ │ Average ₹15,10,240        │ │                           │ │                     │
+ │ Range ₹6,02,000–₹48,7…    │ │                           │ │                     │
+ └───────────────────────────┘ └───────────────────────────┘ └─────────────────────┘
+
+ Salary by job title · as of 25 Nov 2026
+ India (INR)
+ Job title             Headcount   Min      Median    Average    Max     Range
+ Account Manager             512   ₹…       ₹…        ₹…         ₹…      ├──●──────┤
+ …
+
+ Salary spend · 2026 (1 Jan – 25 Nov, year to date)
+ ┌─ India · INR ─────────────────────────────────────────────┐
+ │ ₹936.2Cr total · 5,803 people paid                        │
+ │ ▂▂▃▃▃▄▄▄▄▄▅  (monthly columns, hover for the amount)      │
+ │ [Show table]                                              │
+ └───────────────────────────────────────────────────────────┘
+```
+
+### 6.3 Data and filters
+
+One filter row above the reports scopes all three, and the filter values live in the URL (`/dashboard/reports?country=IN&as_of=…&type=…&year=…&job=…`).
+
+| Report | Endpoint | Filters used |
+|---|---|---|
+| Salary by country | `GET /reports/salary_stats?country=&as_of=&employment_type=` | country, as of, type |
+| Salary by job title | `GET /reports/salary_by_job?country=&as_of=&employment_type=` | country, as of, type. The job-title box filters rows on the client (substring, ignoring case), because the API's `job_title` matches only an exact title. |
+| Salary spend | `GET /reports/salary_spend?country=&year=&breakdown=month` | country and year. "As of" and type don't apply. |
+
+- **Defaults:** all countries, as of today, all types, and the current year. The year list runs from 2016 (the earliest seeded hire) to this year.
+- **Loading:** each report loads on its own. The first load shows a skeleton; a refetch keeps the previous figures on screen, dimmed. Each report has its own error message with a retry.
+- **Zero headcount:** a country card says "No one paid on this date" instead of showing blank figures. Job titles with no one paid don't appear in the API response at all.
+
+### 6.4 Presentation rules (from the dataviz guidance)
+
+- **Never across currencies:** every figure belongs to one country. There is no cross-country total, chart or axis.
+- **Salary by country:** stat tiles, one card per country. The median is the lead figure, with average and min–max below. No chart is needed for a handful of numbers.
+- **Salary by job title:** a table per country, with a thin range bar per row. The track runs from that country's lowest to highest salary, with a dot for the median. The bar adds the shape of the range; the figures stay in the columns.
+- **Salary spend:** one card per country, each with its own column chart of monthly spend.
+  - **Columns:** a single blue series, ≤ 24px wide with a 4px rounded top. There's no legend, since the card title names the series.
+  - **Axes:** hairline gridlines and compact currency ticks (₹82Cr, $1.2M).
+  - **Hover and focus:** each column shows its month and exact amount.
+  - **"Show table":** switches to a table of the months.
+  - **Partial year:** the subtitle says "year to date", and months after today are absent, not shown as zero.
+- **Chart colour:** blue `#257de0` (light) or `#338ced` (dark). Both pass the palette validator against the card surfaces (`#ffffff` and `#181e27`).
+- **Text colour:** text uses the normal text colours, never the chart colour.
+
+## 7. Components
 
 ```
 src/
@@ -319,6 +391,7 @@ src/
     ProfilePage          (renders MyInfo)
     NewHirePage
     ProfileEditPage, EmployeeDetailPage, EmployeeEditPage, ProfileEditor (shared editor logic)
+    ReportsPage
     NotFoundPage, ForbiddenPage
   components/
     layout/   AppShell, AuthLayout, UserMenu, RequireAuth, RequireRole
@@ -327,6 +400,8 @@ src/
     employees/EmployeeSearchBar, EmployeeFilters, EmployeeTable, EmployeePicker (async manager search),
               EmploymentCard, PayCard
     profile/  ProfileForm, PersonalDetailsFields, AddressFields, EmergencyContactFields, profileSchema
+    reports/  ReportFilters, CountryStatsCards, JobSalaryTable, SpendCards, MonthlySpendChart
+    layout/   … HrTabs (Reports | Employees)
     hire/     HireForm, PersonSection, EmploymentSection, RoleSection, PaySection, SalaryBandHint
     ui/       Button, TextField, SelectField, DateField, MoneyInput, Card, Table, Pagination,
               StatusBadge, Money, Spinner, Skeleton, ErrorState (with retry), EmptyState,
@@ -351,9 +426,11 @@ src/
 | `useCreateHire` | — | `POST /employment_actions`. Invalidates `["employees"]` on success. |
 | `useEmployee(id)` | `["employees", "detail", id]` | `GET /employees/:id` |
 | `usePersonProfile(personId)` | `["people", personId, "profile"]` | `GET /people/:id/profile` |
+| `useSalaryStats`, `useSalaryByJob` | `["reports", "salary_stats" \| "salary_by_job", filters]` | `GET /reports/salary_stats`, `/salary_by_job` |
+| `useSalarySpend` | `["reports", "salary_spend", {country, year}]` | `GET /reports/salary_spend?breakdown=month` |
 | `useUpdateProfile(target)` | — | `PATCH /me/profile` or `/people/:id/profile`. Caches the returned profile and invalidates `["me"]` and `["employees"]`. |
 
-## 7. API client and auth
+## 8. API client and auth
 
 Per AGENTS.md §4, `src/api/client.ts` is the only place that calls `fetch`. It:
 - prefixes `/api/v1` (Vite proxies `/api` to `http://localhost:3000`)
@@ -374,13 +451,16 @@ The API facts that settle AGENTS.md's `TODO(team)` items:
 - "Am I signed in?" is answered by `GET /me` (`useCurrentUser`).
 - In dev, Vite proxies `/api` to `http://localhost:3000`, so the browser sees one origin.
 
-## 8. Formatting
+## 9. Formatting
 
-- **Money:** `Intl.NumberFormat(locale, {style: "currency", currency})`, with the locale picked by currency (`INR` → `en-IN`, which groups as ₹18,50,000; `USD` → `en-US`; `AUD` → `en-AU`). The amount string is converted to a number only for display, and amounts are never added up across currencies.
+- **Money:** `Intl.NumberFormat(locale, {style: "currency", currency})`, with the locale picked by currency.
+  - `INR` → `en-IN`, which groups as ₹18,50,000.
+  - `USD` and `AUD` → `en-US`, so Australian amounts print as `A$` and can't be mistaken for US dollars on the same screen.
+  - Charts and totals use compact notation: ₹936.2Cr, $352M, A$225.7M. The amount string is converted to a number only for display, and amounts are never added up across currencies.
 - **Dates:** ISO strings in types, formatted for display only (`1 May 2026`). Date inputs send `YYYY-MM-DD`.
 - **Enums:** a single label map (`full_time` → "Full time", `on_notice` → "On notice").
 
-## 9. Testing (AGENTS.md §9)
+## 10. Testing (AGENTS.md §9)
 
 - MSW handlers for every endpoint used, each covering success, `422` and `401`.
 - **Page tests:**

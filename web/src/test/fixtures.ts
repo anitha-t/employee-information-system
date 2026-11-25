@@ -114,3 +114,35 @@ export function employeeDetail(overrides: Record<string, unknown> = {}) {
     ...overrides,
   }
 }
+
+const money = (amount: string, currency: string) => ({ amount, currency })
+
+export const salaryStats = {
+  as_of: '2026-11-25',
+  data: [
+    { country: 'AU', currency: 'AUD', headcount: 0, min: null, max: null, average: null, median: null },
+    { country: 'IN', currency: 'INR', headcount: 5702, min: money('602000.00', 'INR'), max: money('15803000.00', 'INR'),
+      average: money('1892739.25', 'INR'), median: money('1434500.00', 'INR') },
+  ],
+}
+
+export const salaryByJob = {
+  as_of: '2026-11-25',
+  data: [
+    { country: 'IN', currency: 'INR', job_title: 'Data Scientist', headcount: 273, min: money('878000.00', 'INR'),
+      max: money('3171000.00', 'INR'), average: money('1592839.00', 'INR'), median: money('1486000.00', 'INR') },
+    { country: 'IN', currency: 'INR', job_title: 'Software Engineer', headcount: 1682, min: money('604000.00', 'INR'),
+      max: money('2551000.00', 'INR'), average: money('1131384.00', 'INR'), median: money('1090500.00', 'INR') },
+    { country: 'US', currency: 'USD', job_title: 'Software Engineer', headcount: 679, min: money('60800.00', 'USD'),
+      max: money('227100.00', 'USD'), average: money('106649.00', 'USD'), median: money('102800.00', 'USD') },
+  ],
+}
+
+export const salarySpend = {
+  year: 2026, from: '2026-01-01', to: '2026-11-25', partial: true,
+  data: [
+    { country: 'IN', currency: 'INR', employee_count: 5803, total_spend: money('1642000000.00', 'INR'),
+      breakdown: [{ month: '2026-01', spend: money('821396194.52', 'INR') }, { month: '2026-02', spend: money('746683430.14', 'INR') }] },
+    { country: 'US', currency: 'USD', employee_count: 0, total_spend: money('0.00', 'USD'), breakdown: [] },
+  ],
+}

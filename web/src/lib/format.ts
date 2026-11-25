@@ -1,7 +1,8 @@
 import type { Money } from '../types/api'
 
 // Grouping that matches each currency's country: ₹18,50,000 / $185,000 / A$95,000.
-const LOCALE_BY_CURRENCY: Record<string, string> = { INR: 'en-IN', USD: 'en-US', AUD: 'en-AU' }
+// AUD uses en-US so it prints "A$": US and Australian amounts share screens and must not both read "$".
+const LOCALE_BY_CURRENCY: Record<string, string> = { INR: 'en-IN', USD: 'en-US', AUD: 'en-US' }
 
 /** Formats API money for display. The amount string becomes a number only here. */
 export function formatMoney(money: Money | null | undefined, options: { cents?: boolean } = {}): string {
@@ -13,6 +14,22 @@ export function formatMoney(money: Money | null | undefined, options: { cents?: 
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(Number(money.amount))
+}
+
+/** Short money for tiles and chart axes, in the currency's own style: ₹936.2Cr, $1.2B, A$95M. */
+export function formatMoneyCompact(money: Money | null | undefined): string {
+  if (!money) return '—'
+  return new Intl.NumberFormat(LOCALE_BY_CURRENCY[money.currency] ?? 'en', {
+    style: 'currency', currency: money.currency, notation: 'compact', maximumFractionDigits: 1,
+  }).format(Number(money.amount))
+}
+
+/** "2026-04" → "Apr" (or "Apr 2026" with `year`). */
+export function formatMonth(yearMonth: string, options: { year?: boolean } = {}): string {
+  const [year, month] = yearMonth.split('-').map(Number)
+  if (!year || !month) return yearMonth
+  return new Intl.DateTimeFormat('en-GB', { month: 'short', ...(options.year ? { year: 'numeric' } : {}), timeZone: 'UTC' })
+    .format(new Date(Date.UTC(year, month - 1, 1)))
 }
 
 /** "2026-05-01" → "1 May 2026". Dates are parsed as calendar dates, not instants. */

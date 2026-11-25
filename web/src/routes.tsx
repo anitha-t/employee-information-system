@@ -11,6 +11,7 @@ import { NewHirePage } from './pages/NewHirePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProfileEditPage } from './pages/ProfileEditPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { ReportsPage } from './pages/ReportsPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
 /** Signed-out pages that must never trigger the sign-in redirect. */
@@ -40,6 +41,7 @@ export const routes: RouteObject[] = [
         {
           element: <RequireRole role="hr" />,
           children: [
+            { path: '/dashboard/reports', element: <ReportsPage /> },
             { path: '/employees/new', element: <NewHirePage /> },
             { path: '/employees/:employmentId', element: <EmployeeDetailPage /> },
             { path: '/employees/:employmentId/edit', element: <EmployeeEditPage /> },

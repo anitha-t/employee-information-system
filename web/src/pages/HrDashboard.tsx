@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { HrTabs } from '../components/layout/HrTabs'
 import { EmployeeFilters, type EmployeeFilterValues } from '../components/employees/EmployeeFilters'
 import { EmployeeSearchBar } from '../components/employees/EmployeeSearchBar'
 import { EmployeeTable, EmployeeTableSkeleton } from '../components/employees/EmployeeTable'
@@ -47,6 +48,7 @@ export function HrDashboard({ me }: { me: Me }) {
 
   return (
     <div className="page">
+      <HrTabs />
       <div className="page-header">
         <div>
           <p className="muted">Welcome back, {me.person.displayName}</p>
