@@ -53,6 +53,10 @@ bin/rubocop                 # lint (omakase + rspec, rspec_rails, factory_bot, p
 bin/rubocop -a              # autocorrect safe offenses
 bin/brakeman -q --no-pager  # security scan
 bin/rails s                 # http://localhost:3000, health check at /up
+bin/rails db:seed           # countries + dev logins + 10,000 demo employees (dev only, ~6s, skipped if employees exist)
+bin/rails db:seed:replant   # wipe all data and reseed
+bin/rails db:seed:employees COUNT=20000 SEED=42   # bulk demo employees at any size (refuses in production)
+SEED_EMPLOYEES=0 bin/rails db:seed                # reference data and logins only
 ```
 
 Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pass.
@@ -76,7 +80,10 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
 - **Employment actions** go through `EmploymentActions::Create` and `EmploymentActions::Update` only. These services lock the employment row, apply changes in date order, and never let effective-dated rows overlap. When moving a date, shrink the neighbouring row first and grow the other second.
 - Money in JSON goes through `MoneySerializer.call(money)`. List endpoints use the `Paginated` concern and return `{data, meta}`.
 - `ActiveRecord::ExclusionViolation` renders as `422 conflicting_record`. The primary-emergency-contact constraint is `DEFERRABLE INITIALLY DEFERRED`. Specs that need it to fire must run `SET CONSTRAINTS … IMMEDIATE`, because test transactions never commit.
-- Dev login (seeded by `bin/rails db:seed`, development only): `hr@salary-management.local` / `dev-password-123`. Dev emails are written to `api/tmp/mails`.
+- Dev logins (seeded by `bin/rails db:seed`, development only): `hr@salary-management.local` (HR) and `employee@salary-management.local` (employee), both with password `dev-password-123`. Dev emails are written to `api/tmp/mails`.
+- **Demo data** (`db/seeds/employees.rb`): names come from `db/seeds/first_names.txt` × `last_names.txt`.
+  - Rows are built in memory and loaded with Postgres `COPY`, so validations and audit versions are skipped. The generator must keep the data valid itself, and `spec/seeds` checks it with model validations.
+  - When changing the domain rules, update the generator too.
 - CORS allows `WEB_ORIGINS` (default `http://localhost:5173`) on `/api/*`.
 - Audit versions are stored in jsonb (`object`, `object_changes`), plus `whodunnit`, `request_id` and `ip`.
 - Enums are string columns declared with `string_enum` (`ApplicationRecord`). They are validated, and accept `allow_nil: true` for optional values.
