@@ -325,9 +325,6 @@ GEM
       rubocop (~> 1.89)
       rubocop-rspec (~> 3.5)
     ruby-progressbar (1.13.0)
-    scenic (1.9.0)
-      activerecord (>= 4.0.0)
-      railties (>= 4.0.0)
     securerandom (0.4.1)
     shoulda-matchers (8.0.1)
       activesupport (>= 7.2)
@@ -403,7 +400,6 @@ DEPENDENCIES
   rubocop-rails-omakase
   rubocop-rspec
   rubocop-rspec_rails
-  scenic
   shoulda-matchers
   simplecov
   solid_cable

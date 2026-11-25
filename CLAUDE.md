@@ -24,7 +24,7 @@ When the schema or the API changes, update the matching doc in the same change.
 - **Money**: `money-rails`, `annual_salary_cents` + `currency`. The currency must equal the legal entity's country currency. Never sum across currencies. Reports are always per country, in that country's currency. JSON format: `{"amount": "1850000.00", "currency": "INR"}` (the amount is a string, never a float).
 - **Roles**: only `hr` (global, full access) and `employee` (own profile: `preferred_name`, `phone_number`, `email`, addresses, emergency contacts). Enforce roles in Pundit policies, not in controllers.
 - **Audit**: `paper_trail` on all domain tables, with `whodunnit = current_user.id`.
-- Reports and employee lists read from the Scenic views `current_employee_snapshots` and `compensation_periods`.
+- **Employee lists and reports** read from the SQL function `employee_snapshots_on(as_of)`, through `EmployeeSnapshot.as_of(date)`. Always pass the date from Rails (`Date.current`), never rely on the database's `CURRENT_DATE`. Postgres inlines the function, so filters push down. The `employee_snapshots` view exists only to give ActiveRecord column types. When changing the function, drop and recreate both in a migration.
 - The salary-by-job report suppresses groups with fewer than 5 employees.
 
 ## Conventions

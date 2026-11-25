@@ -69,8 +69,8 @@ Tokens are valid for 14 days. There is no sliding renewal. New-hire invites (`cr
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/employees?q=&country=&legal_entity_id=&team_id=&job_id=&grade_id=&status=&employment_type=` | `q` is full-text search (§4). The list is backed by `current_employee_snapshots`. |
-| GET | `/employees/:employment_id` | person, employment, current assignment, current compensation |
+| GET | `/employees?q=&country=&legal_entity_id=&team_id=&job_id=&grade_id=&status=&employment_type=&as_of=&page=&per_page=` | Returns `{data, meta: {page, per_page, total_count, as_of}}`. `q` is full-text search (§4). `status` defaults to `active,on_notice`; it also accepts a comma-separated list or `all`. `as_of` defaults to today and picks which job and salary are shown. Leavers show their last known job and salary; future hires show their upcoming one. Each item has employee number, status, person, legal entity, country/currency, position, job, team, grade, manager, `annual_salary` and `pay_frequency`. |
+| GET | `/employees/:employment_id?as_of=` | The same fields as a list item, plus `employment: {lock_version, notice_period_days, resignation_date, separation_type, separation_reason, eligible_for_rehire, assignment_effective_from, compensation_effective_from}`. Non-HR users get `403` before the lookup, so they can't probe ids. |
 | GET | `/people/:id/profile` | same shape as `/me/profile`, plus `first_name, last_name, dob, gender` |
 | PATCH | `/people/:id/profile` | same single API as `/me/profile`, with all person fields allowed |
 | PATCH | `/employments/:id` | non-effective-dated fields: `work_email, employment_type, notice_period_days, eligible_for_rehire` |
@@ -304,12 +304,14 @@ This updates the action and its linked rows in one transaction.
 
 ## 4. Employee search
 
-- The `pg_search` scope on Person searches `search_vector`, which covers first, last and preferred names and personal email. It uses `tsearch` with prefix matching.
-- It also uses `trigram` matching (`pg_trgm`) for typos and partial names.
-- `employee_number` and `work_email` are matched exactly or by prefix, through an index on employments.
-- `GET /employees?q=priy` combines this search with the filters. Results are ranked by relevance and then by name.
+`q` matches, in one SQL query over `employee_snapshots_on(as_of)` (`EmployeeSearch`):
+- **Names and personal email:** prefix full-text search on `people.search_vector` (`'simple'` dictionary). `priya sha` becomes `priya:* & sha:*`. Only letters and digits are kept, so users can't inject tsquery operators.
+- **Typos and partial names:** trigram similarity ≥ 0.2 on `full_name` (`pg_trgm`). For example, `jon smith` and `smth` both find John Smith.
+- **Employee number and work email:** case-insensitive prefix match.
 
----
+Results are ranked by `ts_rank + similarity`, then by name. Without `q`, they are sorted by name.
+
+Measured locally with 20,000 employees: ~50–75 ms for a search, and ~190 ms for the unfiltered first page plus total count. The unfiltered list has to resolve the current job and salary for every row before sorting.
 
 ## 5. Audit trail
 

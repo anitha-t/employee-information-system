@@ -20,7 +20,7 @@ flowchart LR
 
     subgraph DB["PostgreSQL"]
         TBL[("Core tables<br/>UUID PKs, exclusion constraints")]
-        VIEWS[("Scenic views<br/>current_employee_snapshots<br/>compensation_periods")]
+        VIEWS[("SQL function<br/>employee_snapshots_on(as_of)")]
         VER[("versions<br/>audit trail")]
         SQ[("Solid Queue / Cache tables")]
     end
@@ -80,8 +80,8 @@ sequenceDiagram
 | Authorization | Pundit |
 | Money | `money-rails` (amount in cents plus currency) |
 | Audit | `paper_trail` |
-| Search | `pg_search` (tsearch plus trigram) |
-| Reporting views | `scenic` |
+| Search | Postgres full-text (`tsvector`) plus `pg_trgm` similarity, done in SQL by `EmployeeSearch`. `pg_search` provides `Person.search`. |
+| Employee list / reporting | SQL function `employee_snapshots_on(as_of)` (inlined by Postgres), read through `EmployeeSnapshot` |
 | Background jobs | Solid Queue |
 | CORS | `rack-cors`, which allows the React origin |
 | Frontend | React SPA in `web/` |

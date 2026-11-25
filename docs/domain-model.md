@@ -270,6 +270,9 @@ Country path: `Compensation → Employment → LegalEntity → Location → Coun
   ```
   Sum the spend per country, which is a single currency.
 
-The logic lives in two Scenic views:
-- `current_employee_snapshots` serves (a), (b) and the employee list.
-- `compensation_periods` serves (c).
+The employee list and reports (a) and (b) read from the SQL function `employee_snapshots_on(as_of)`. It returns one row per employment, with person, legal entity, country, and the primary assignment and compensation for that date:
+- If a row started on or before `as_of`, the function picks the latest such row.
+- Otherwise (a future hire), it picks the earliest upcoming row.
+- Reports filter on the returned `*_effective_from/to` columns when they need rows strictly active on `as_of`.
+
+It is a function rather than a view so the date is a parameter. Report (c) will get its own query when the reports are built.

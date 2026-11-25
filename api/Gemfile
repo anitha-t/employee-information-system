@@ -34,7 +34,6 @@ gem "pundit"          # authorization policies (hr / employee)
 gem "money-rails"     # Money objects for annual_salary
 gem "paper_trail"     # audit trail (whodunnit)
 gem "pg_search"       # Postgres full-text employee search
-gem "scenic"          # versioned SQL views for reports
 
 group :development, :test do
   gem "rspec-rails"

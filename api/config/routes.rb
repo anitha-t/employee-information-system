@@ -13,6 +13,7 @@ Rails.application.routes.draw do
       patch "people/:person_id/profile", to: "profiles#update"
 
       resources :employment_actions, only: %i[index show create update]
+      resources :employees, only: %i[index show]
     end
   end
 end
