@@ -29,6 +29,6 @@ assume all pk ids are uuids
 Let's first grill the model and find any problems in terms of UI views, how easy the data is collected and stored to get the below insights via UI.
 a. Minimum, maximum, average salary of employees in a country
 b. Average salary for the given Job Title in a country.
-c. How much salary increments happened in last year in a country
+c. How much spend happened in last year in a country
 
 
