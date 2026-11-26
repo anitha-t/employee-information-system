@@ -1,0 +1,18 @@
+#!/bin/bash -e
+# Entrypoint for Dockerfile.dev: prepare the database, seed it, then run the command.
+
+# A server killed without cleanup leaves its pid file behind and then refuses to start.
+if [ -f tmp/pids/server.pid ]; then
+  rm tmp/pids/server.pid
+fi
+
+# Creates the database or applies pending migrations.
+./bin/rails db:prepare
+
+# Idempotent: tops up reference data and the dev logins. The 10,000 demo employees
+# are created only on an empty database (SEED_EMPLOYEES=0 skips them).
+if [ "${SEED_ON_START:-true}" = "true" ]; then
+  ./bin/rails db:seed
+fi
+
+exec "${@}"

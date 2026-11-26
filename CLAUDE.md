@@ -40,8 +40,18 @@ When the schema or the API changes, update the matching doc in the same change.
 
 ## Commands
 
-- `docker compose up -d` starts local PostgreSQL 18 on `localhost:5432`. The user, password and database default to `salary` / `salary` / `salary_management_development`. Override them in `.env` (see `.env.example`).
-- `docker compose down` stops it. Add `-v` to also delete the data volume.
+- **Whole stack in Docker:** `docker compose up -d --build` starts three services. Open http://localhost:8080 and sign in with a dev login (below).
+  - `postgres`: PostgreSQL 18 on `localhost:5432`.
+  - `api`: Rails in development mode, from `api/Dockerfile.dev`, on `localhost:3000`. On start, `bin/docker-dev-entrypoint` runs `db:prepare` and then the idempotent `db:seed`. The first start on an empty database seeds the 10,000 demo employees.
+  - `web`: the built SPA, served by nginx from `web/Dockerfile` on `localhost:8080`. nginx proxies `/api` to the `api` service, so the session cookie is same-origin.
+- **Database only:** `docker compose up -d postgres`, when you run `api/` and `web/` on the host.
+- **Stopping:** `docker compose down`. Add `-v` to also delete the data volume.
+- **Settings** (in `.env`, see `.env.example`):
+  - the database user, password and name (default `salary` / `salary` / `salary_management_development`)
+  - the ports (`POSTGRES_PORT`, `API_PORT`, `WEB_PORT`)
+  - seeding (`SEED_ON_START`, `SEED_EMPLOYEES`)
+- `api/Dockerfile` is the separate **production** image (Kamal / Thruster) and isn't used by compose.
+- **Ports in use:** if you run Rails on the host (port 3000), stop the `api` container or change `API_PORT`.
 
 Run API commands from `api/`. The host needs Homebrew `libpq` on `PATH`, both for the `pg` gem and because `structure.sql` is dumped with `pg_dump`:
 

@@ -29,6 +29,7 @@ Each entry records a decision, why it was made, and what follows from it, so the
 | D17 | The logo is the full artwork in light mode, icon plus text in dark mode | Web |
 | D18 | Branch before committing; keep the user's work in separate commits | Process |
 | D19 | Verify against real data without leaving any behind | Process |
+| D20 | Docker Compose runs the whole stack: a development API image and an nginx web image | Process |
 
 ---
 
@@ -301,6 +302,36 @@ Each entry records a decision, why it was made, and what follows from it, so the
 **Why.** Several real bugs only showed up against real data or in a real render.
 
 ---
+
+### D20. Docker Compose runs the whole stack: a development API image and an nginx web image
+
+**Context.** Compose only ran PostgreSQL. The goal was to start the database, the API and the web app with one command.
+
+**Decision.**
+- **API (`api/Dockerfile.dev`):** runs Rails in **development** mode.
+  - `bin/docker-dev-entrypoint` runs `db:prepare` and then the idempotent `db:seed`, so the stack comes with the demo org, 10,000 employees and the dev logins.
+  - The image installs the PostgreSQL 18 client from PGDG, because `pg_dump` must be at least the server's version.
+  - It runs as a non-root user.
+- **Web (`web/Dockerfile`):** builds the SPA on Node 24, then serves it with nginx.
+  - nginx proxies `/api` to the API (`API_UPSTREAM`), which keeps the session cookie same-origin, as D5 requires.
+  - Client routes fall back to `index.html`.
+  - Hashed assets are cached for a year, and `index.html` is never cached.
+- **Unchanged:** the production `api/Dockerfile` (Kamal / Thruster).
+- **Ports and seeding:** set in `.env`.
+
+**Why development mode for the API.** The production config and image would need four workarounds:
+- they force HTTPS
+- they use separate production databases and credentials
+- they need the master key
+- the demo data and dev logins are deliberately development-only
+
+A development image needs none of that and gives a usable local stack. Loosening the production config for local use would have been riskier.
+
+**Why Node 24.** Lockfiles written by older npm versions can miss optional platform packages, and the newer npm in the image refuses them. `web/package-lock.json` was regenerated with npm 11.19 to include them. Node 24 also satisfies every package's `engines` field.
+
+**Consequences.**
+- The Docker stack and Rails on the host both want port 3000. Run one at a time, or change `API_PORT`.
+- A production deployment of the web app needs the same `/api` proxy, or equivalent same-site hosting (D5).
 
 ## Future work
 

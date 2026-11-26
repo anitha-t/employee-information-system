@@ -1,5 +1,12 @@
-# Local development services.
-# Usage: docker compose up -d   |   docker compose down   (add -v to wipe data)
+# The full local stack: PostgreSQL, the Rails API (development mode, seeded with demo data)
+# and the web app (nginx serving the built SPA and proxying /api to the API).
+#
+#   docker compose up -d --build     # build and start everything; open http://localhost:8080
+#   docker compose up -d postgres    # only the database, when running api/ and web/ on the host
+#   docker compose logs -f api       # follow the API (the first start seeds 10,000 employees)
+#   docker compose down              # stop (add -v to also delete the database volume)
+#
+# Settings come from .env (see .env.example).
 services:
   postgres:
     image: postgres:18
@@ -20,5 +27,53 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    image: employee-information-system-api:dev
+    container_name: employee-information-system-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-salary}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-salary}
+      # Password-reset links point at the web app.
+      WEB_APP_URL: http://localhost:${WEB_PORT:-8080}
+      WEB_ORIGINS: http://localhost:${WEB_PORT:-8080},http://localhost:5173
+      SEED_ON_START: ${SEED_ON_START:-true}
+      SEED_EMPLOYEES: ${SEED_EMPLOYEES:-10000}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      # Dev mail (password-reset links), logs and caches, kept between restarts.
+      - api_tmp:/rails/tmp
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/up > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      # The first start loads the schema and seeds 10,000 employees.
+      start_period: 180s
+      retries: 10
+
+  web:
+    build:
+      context: ./web
+    image: employee-information-system-web
+    container_name: employee-information-system-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_UPSTREAM: http://api:3000
+    ports:
+      - "${WEB_PORT:-8080}:80"
+
 volumes:
   postgres_data:
+  api_tmp:

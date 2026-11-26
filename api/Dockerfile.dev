@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+# Development image for the full local stack (docker-compose.yml): Rails in development mode,
+# so `db:seed` creates the demo org, 10,000 demo employees and the dev logins.
+# Production deployments use ./Dockerfile instead.
+#
+#   docker build -f Dockerfile.dev -t employee-information-system-api:dev .
+
+ARG RUBY_VERSION=3.4.13
+FROM docker.io/library/ruby:$RUBY_VERSION-slim
+
+WORKDIR /rails
+
+# Build tools for native gems, plus the PostgreSQL 18 client from the PGDG repository:
+# db:prepare loads db/structure.sql with psql, and db:migrate dumps it with pg_dump,
+# which must be at least the server's version (postgres:18).
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential ca-certificates curl git gnupg libpq-dev libyaml-dev pkg-config && \
+    install -d /usr/share/postgresql-common/pgdg && \
+    curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+    . /etc/os-release && \
+    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update -qq && \
+    apt-get install --no-install-recommends -y postgresql-client-18 && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+ENV RAILS_ENV="development" \
+    BUNDLE_PATH="/usr/local/bundle"
+
+# Run as a non-root user.
+RUN groupadd --system --gid 1000 rails && \
+    useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash && \
+    mkdir -p "${BUNDLE_PATH}" && chown rails:rails /rails "${BUNDLE_PATH}"
+USER 1000:1000
+
+# Gems first, so code changes don't reinstall them.
+COPY --chown=rails:rails Gemfile Gemfile.lock ./
+RUN bundle install
+
+COPY --chown=rails:rails . .
+
+# Prepares (and seeds) the database before the server starts.
+ENTRYPOINT ["/rails/bin/docker-dev-entrypoint"]
+
+EXPOSE 3000
+CMD ["./bin/rails", "server", "-b", "0.0.0.0", "-p", "3000"]
