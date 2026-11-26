@@ -1,53 +1,57 @@
+import type { FormEvent } from 'react'
 import { LABELS } from '../../lib/format'
 import type { Country } from '../../types/reference'
+import { Button } from '../ui/Button'
 
+/** The filters that go to the API; they apply only when the user presses Go. */
 export interface ReportFilterValues {
   country: string
   asOf: string
   employmentType: string
-  year: string
-  job: string
 }
 
 interface Props {
-  values: ReportFilterValues
+  draft: ReportFilterValues
   countries: Country[]
-  years: number[]
-  onChange: (name: keyof ReportFilterValues, value: string) => void
+  onDraftChange: (name: keyof ReportFilterValues, value: string) => void
+  onGo: () => void
+  loading: boolean
+  /** Client-side job-title filter: instant, no request. */
+  job: string
+  onJobChange: (value: string) => void
 }
 
-/** One row above all reports; every report re-renders against the same slice. */
-export function ReportFilters({ values, countries, years, onChange }: Props) {
+/** One row above all reports. Edit the filters, then Go runs every report against the same slice. */
+export function ReportFilters({ draft, countries, onDraftChange, onGo, loading, job, onJobChange }: Props) {
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    onGo()
+  }
   return (
-    <div className="filters report-filters">
+    <form className="filters report-filters" onSubmit={submit} aria-label="Report filters">
       <label>
         Country
-        <select value={values.country} onChange={(event) => onChange('country', event.target.value)}>
+        <select value={draft.country} onChange={(event) => onDraftChange('country', event.target.value)}>
           <option value="">All countries</option>
           {countries.map((country) => <option key={country.id} value={country.isoCode}>{country.name}</option>)}
         </select>
       </label>
       <label>
         As of
-        <input type="date" value={values.asOf} required onChange={(event) => onChange('asOf', event.target.value)} />
+        <input type="date" value={draft.asOf} required onChange={(event) => onDraftChange('asOf', event.target.value)} />
       </label>
       <label>
         Type
-        <select value={values.employmentType} onChange={(event) => onChange('employmentType', event.target.value)}>
+        <select value={draft.employmentType} onChange={(event) => onDraftChange('employmentType', event.target.value)}>
           <option value="">All types</option>
           {Object.entries(LABELS.employmentType).map(([value, text]) => <option key={value} value={value}>{text}</option>)}
         </select>
       </label>
-      <label>
-        Spend year
-        <select value={values.year} onChange={(event) => onChange('year', event.target.value)}>
-          {years.map((year) => <option key={year} value={year}>{year}</option>)}
-        </select>
-      </label>
-      <label>
+      <Button type="submit" loading={loading} className="filters-go">Go</Button>
+      <label className="filters-job">
         Job title
-        <input type="search" value={values.job} placeholder="Filter job titles…" onChange={(event) => onChange('job', event.target.value)} />
+        <input type="search" value={job} placeholder="Filter job titles…" onChange={(event) => onJobChange(event.target.value)} />
       </label>
-    </div>
+    </form>
   )
 }

@@ -1,11 +1,12 @@
 # Web App Design
 
-Status: **Phases 1–3 built** (`web/`)
+Status: **Phases 1–4 built** (`web/`)
 Depends on: [api-design.md](api-design.md), [AGENTS.md](../AGENTS.md) (frontend rules)
 Scope:
 - **Phase 1:** sign-in, the dashboards and the HR "new hire" flow.
 - **Phase 2:** editing profiles, and the HR employee detail and edit pages (§5).
 - **Phase 3:** salary reports on the HR dashboard (§6).
+- **Phase 4:** increments, promotions and internal transfers, plus employment history (§7).
 
 ## 1. Pages and routes
 
@@ -22,6 +23,7 @@ Scope:
 | `/employees/new` | New hire form | HR | `POST /employment_actions` and reference data (§4) |
 | `/employees/:employmentId` | Employee detail | HR | `GET /employees/:id`, `GET /people/:personId/profile` (§5) |
 | `/employees/:employmentId/edit` | Edit an employee's profile | HR | `GET /employees/:id`, `GET` / `PATCH /people/:personId/profile` (§5) |
+| `/employees/:employmentId/changes/new?type=` | Increment, promotion or transfer | HR | `POST /employment_actions`, `GET /employment_actions?employment_id=` (§7) |
 | `*` | Not found | — | — |
 
 Routing rules:
@@ -30,7 +32,7 @@ Routing rules:
 - A signed-in user who opens `/login`, `/forgot-password` or `/reset-password` is redirected to `/dashboard`.
 - After sign-in: go to `next` if it is a same-app path (starts with `/`, not `//`), otherwise `/dashboard`.
 
-Not planned yet: employment changes after hire (promotion, transfer, salary change, separation), the audit trail and the directory.
+Not planned yet: manager change and regrade as their own tabs, correcting a past action (`PATCH /employment_actions/:id`), separation, the audit trail and the directory.
 
 ## 2. Sign-in pages
 
@@ -52,7 +54,7 @@ All three use `AuthLayout`: a centred card with the app name, no navigation.
 
 - Fields: `email_address` (required, email format) and `password` (required). Validated with Zod before submit.
 - Submit → `POST /session`. The button shows a spinner and is disabled while the request runs.
-- `201` → the browser now holds the session cookie (§8). Invalidate `["me"]` and navigate as in §1.
+- `201` → the browser now holds the session cookie (§9). Invalidate `["me"]` and navigate as in §1.
 - `401 invalid_credentials` → a form-level error: "Email or password is incorrect." The password field is cleared. Separated employees get this same message (the API doesn't distinguish them).
 - `429 rate_limited` → "Too many sign-in attempts. Try again in a few minutes."
 - Network or 5xx error → "Something went wrong. Try again."
@@ -149,7 +151,7 @@ Data: `GET /employees?q=&country=&status=&employment_type=&page=&per_page=25`.
 - **Rows:**
   - Name shows `person.display_name`, with `full_name` underneath when it differs.
   - Job · Team uses `job.title` and `team.name`.
-  - Salary uses `annual_salary`, formatted in its own currency (§9).
+  - Salary uses `annual_salary`, formatted in its own currency (§10).
   - The name links to `/employees/:employmentId` (§5.2).
 - **Pagination:** from `meta.total_count`, 25 per page.
 - **Page states:**
@@ -315,20 +317,20 @@ Results:
 
 ### 6.1 Tabs
 
-The HR dashboard has two tabs, **Reports | Employees**. They are links, so each tab has its own URL and the browser's back button works.
+The HR dashboard has two tabs, **Employees | Reports**. They are links, so each tab has its own URL and the browser's back button works. Employees is the default tab, on the left.
 
 | Tab | Route | Content |
 |---|---|---|
-| Reports | `/dashboard/reports` | This section |
 | Employees | `/dashboard` (default) | §3.2, unchanged. Existing links and bookmarks keep working. |
+| Reports | `/dashboard/reports` | This section |
 
 Employees never see the tabs. `/dashboard/reports` is HR-only, like the API.
 
 ### 6.2 Layout
 
 ```
- [Reports] [Employees]                                                    
- Country [All ▾]  As of [2026-11-25]  Type [All ▾]  Year [2026 ▾]  Job title [filter…]
+ [Employees] [Reports]
+ Country [All ▾]  As of [2026-11-25]  Type [All ▾]  [ Go ]                Job title [filter…]
  Amounts are per country, in its own currency. They are never added across countries.
 
  Salary by country · as of 25 Nov 2026
@@ -355,15 +357,18 @@ Employees never see the tabs. `/dashboard/reports` is HR-only, like the API.
 
 ### 6.3 Data and filters
 
-One filter row above the reports scopes all three, and the filter values live in the URL (`/dashboard/reports?country=IN&as_of=…&type=…&year=…&job=…`).
+One filter row above the reports scopes all three.
+- **Reports run on demand.** Opening the tab fetches nothing and shows "Choose the filters and press Go to run the reports." Changing a filter edits a draft; only **Go** sends requests. Pressing Go again with the same filters refreshes the figures.
+- **Applied filters live in the URL** (`/dashboard/reports?as_of=…&country=…&type=…&job=…`). `as_of` is written on every Go, so a link or the back button that includes it runs the reports straight away.
+- **Job title** is the exception: it filters loaded rows on the client as you type, and costs no request.
 
 | Report | Endpoint | Filters used |
 |---|---|---|
 | Salary by country | `GET /reports/salary_stats?country=&as_of=&employment_type=` | country, as of, type |
 | Salary by job title | `GET /reports/salary_by_job?country=&as_of=&employment_type=` | country, as of, type. The job-title box filters rows on the client (substring, ignoring case), because the API's `job_title` matches only an exact title. |
-| Salary spend | `GET /reports/salary_spend?country=&year=&breakdown=month` | country and year. "As of" and type don't apply. |
+| Salary spend | `GET /reports/salary_spend?country=&breakdown=month` | Country only, for the current year (the API's default). "As of" and type don't apply. There is no year filter for now. |
 
-- **Defaults:** all countries, as of today, all types, and the current year. The year list runs from 2016 (the earliest seeded hire) to this year.
+- **Defaults:** all countries, as of today, all types.
 - **Loading:** each report loads on its own. The first load shows a skeleton; a refetch keeps the previous figures on screen, dimmed. Each report has its own error message with a retry.
 - **Zero headcount:** a country card says "No one paid on this date" instead of showing blank figures. Job titles with no one paid don't appear in the API response at all.
 
@@ -381,7 +386,65 @@ One filter row above the reports scopes all three, and the filter values live in
 - **Chart colour:** blue `#257de0` (light) or `#338ced` (dark). Both pass the palette validator against the card surfaces (`#ffffff` and `#181e27`).
 - **Text colour:** text uses the normal text colours, never the chart colour.
 
-## 7. Components
+## 7. Employment changes (phase 4)
+
+No API changes. Everything uses `POST /employment_actions` (api-design.md §3.2) and `GET /employment_actions?employment_id=&per_page=100`.
+
+### 7.1 Entry points and history (`/employees/:employmentId`)
+
+- **Buttons:** next to "Edit profile" are three more: **Increment**, **Promote** and **Transfer**. Each opens `/employees/:id/changes/new?type=salary_change|promotion|transfer`.
+  - The buttons show only for `active` employments. On-notice and separated employees get "No further changes can be made (on notice)." because the API refuses with `422 employment_id`.
+- **History card:** every action, newest first, read from the list endpoint.
+  - Each entry shows the date, the type, what changed, the reason, and who made it.
+  - "What changed" compares each row with the previous row of the same kind, worked out on the client: "Grade G2 → G3", "Salary ₹12,96,000 → ₹15,00,000 (+15.7%)", "Position Platform → Payments", "Manager A → B".
+  - A hire shows its starting position, grade and salary. A separation shows the last working day.
+
+### 7.2 The change form (`/employees/:id/changes/new?type=`)
+
+```
+ ← Priya Sharma
+ Change employment
+ [Increment] [Promotion] [Internal transfer]          (links: ?type=…)
+ Current: Software Engineer, Platform (IN) · G3 · ₹15,00,000 · Manager Farhan Shah
+┌─ When ───────────────────────────────────────────────────────┐
+│ Effective date* [2026-04-01]   Must be after 1 Apr 2025       │
+├─ Role (promotion, transfer) ─────────────────────────────────┤
+│ Position* [Software Engineer, Platform (IN) ▾]  Grade* [G3 ▾] │
+│ Manager [Farhan Shah · Change]                 (transfer only) │
+├─ Pay (required for an increment, optional otherwise) ────────┤
+│ New annual salary (INR) [1500000]   +15.7% from ₹12,96,000    │
+│ Band for G3 in India: ₹11,76,000 – ₹19,60,000                 │
+├─ Notes ──────────────────────────────────────────────────────┤
+│ Reason [FY26 cycle]                                           │
+└──────────────────────────────────────────────────────────────┘
+                                         [Cancel] [Save promotion]
+```
+
+The form is prefilled from `GET /employees/:id` (position, grade, manager, salary) and only sends what changed. The API copies everything else from the current row: a promotion keeps the manager, and an increment keeps the job.
+
+| Type | Sends | Client checks |
+|---|---|---|
+| Increment (`salary_change`) | `compensation.annual_salary` | Salary required, above 0 and different from the current one |
+| Promotion | `assignment.position_id` and/or `assignment.grade_id` (whichever changed), plus `compensation` if a new salary is entered | Position or grade must change. A grade that isn't higher shows the hint "Usually a promotion moves to a higher grade" but doesn't block. |
+| Internal transfer | `assignment.position_id` (must differ), a changed `grade_id`, `reports_to_employment_id` if the manager changed, plus optional `compensation` | A position at the same legal entity, different from the current one |
+
+Shared rules:
+- **Effective date:** required, and later than the latest change of the same kind. That's the latest assignment for a role change, and the latest compensation when a salary is sent; both come from the history.
+  - The hint names that date: "Must be after 1 Apr 2025 (last pay change)".
+  - The API's own check (`422 effective_date`) remains the authority.
+- **Positions:** `GET /positions?legal_entity_id=<the employee's entity>&as_of=<date>`. A transfer can't leave the legal entity: moving entity is a separation plus a new hire.
+- **Grades:** limited to the chosen position's job range. If the current grade is outside the new job's range, the grade is cleared and must be chosen.
+- **Salary:** in the entity's currency, read-only, and sent as a decimal string. The live change since the current salary is shown ("+15.7% from ₹12,96,000"), along with the band hint for the chosen grade.
+- **Position and grade fields:** the hire form and the change form share them (`RoleSection`, which now takes registered field props, so it no longer depends on one form).
+
+Results:
+- **`201`:** a toast such as "Promotion saved for Priya Sharma, effective 1 Apr 2026.", with any band warnings. The user returns to the employee page.
+  - The page invalidates `["employees"]`, the employment history and `["positions"]`. A future-dated change shows up in the history straight away, but the detail page's current values change only on that date.
+- **`422`:** errors are mapped onto fields (`effective_date`, `assignment.position`, `assignment.grade`, `assignment.reports_to_employment`, `compensation.annual_salary`). Anything else goes in the summary, such as `employment_id` "is on notice".
+- **Not an active employee** (when the page is opened by URL): the form is replaced by "No further changes can be made (on notice)."
+- **Cancel** asks before discarding changes.
+
+## 8. Components
 
 ```
 src/
@@ -392,6 +455,7 @@ src/
     NewHirePage
     ProfileEditPage, EmployeeDetailPage, EmployeeEditPage, ProfileEditor (shared editor logic)
     ReportsPage
+    EmploymentChangePage
     NotFoundPage, ForbiddenPage
   components/
     layout/   AppShell, AuthLayout, UserMenu, RequireAuth, RequireRole
@@ -400,6 +464,7 @@ src/
     employees/EmployeeSearchBar, EmployeeFilters, EmployeeTable, EmployeePicker (async manager search),
               EmploymentCard, PayCard
     profile/  ProfileForm, PersonalDetailsFields, AddressFields, EmergencyContactFields, profileSchema
+    changes/  ChangeForm, changeSchema, CurrentSummary, HistoryTimeline (+ history diffs)
     reports/  ReportFilters, CountryStatsCards, JobSalaryTable, SpendCards, MonthlySpendChart
     layout/   … HrTabs (Reports | Employees)
     hire/     HireForm, PersonSection, EmploymentSection, RoleSection, PaySection, SalaryBandHint
@@ -427,10 +492,12 @@ src/
 | `useEmployee(id)` | `["employees", "detail", id]` | `GET /employees/:id` |
 | `usePersonProfile(personId)` | `["people", personId, "profile"]` | `GET /people/:id/profile` |
 | `useSalaryStats`, `useSalaryByJob` | `["reports", "salary_stats" \| "salary_by_job", filters]` | `GET /reports/salary_stats`, `/salary_by_job` |
-| `useSalarySpend` | `["reports", "salary_spend", {country, year}]` | `GET /reports/salary_spend?breakdown=month` |
+| `useSalarySpend` | `["reports", "salary_spend", {country}]` | `GET /reports/salary_spend?breakdown=month` (current year). All three report hooks run only after Go. |
+| `useEmploymentHistory(id)` | `["employment_actions", id]` | `GET /employment_actions?employment_id=&per_page=100` |
+| `useCreateChange` | — | `POST /employment_actions`. Invalidates `["employees"]`, the history and `["positions"]`. |
 | `useUpdateProfile(target)` | — | `PATCH /me/profile` or `/people/:id/profile`. Caches the returned profile and invalidates `["me"]` and `["employees"]`. |
 
-## 8. API client and auth
+## 9. API client and auth
 
 Per AGENTS.md §4, `src/api/client.ts` is the only place that calls `fetch`. It:
 - prefixes `/api/v1` (Vite proxies `/api` to `http://localhost:3000`)
@@ -451,7 +518,7 @@ The API facts that settle AGENTS.md's `TODO(team)` items:
 - "Am I signed in?" is answered by `GET /me` (`useCurrentUser`).
 - In dev, Vite proxies `/api` to `http://localhost:3000`, so the browser sees one origin.
 
-## 9. Formatting
+## 10. Formatting
 
 - **Money:** `Intl.NumberFormat(locale, {style: "currency", currency})`, with the locale picked by currency.
   - `INR` → `en-IN`, which groups as ₹18,50,000.
@@ -460,7 +527,7 @@ The API facts that settle AGENTS.md's `TODO(team)` items:
 - **Dates:** ISO strings in types, formatted for display only (`1 May 2026`). Date inputs send `YYYY-MM-DD`.
 - **Enums:** a single label map (`full_time` → "Full time", `on_notice` → "On notice").
 
-## 10. Testing (AGENTS.md §9)
+## 11. Testing (AGENTS.md §9)
 
 - MSW handlers for every endpoint used, each covering success, `422` and `401`.
 - **Page tests:**

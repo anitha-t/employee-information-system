@@ -24,11 +24,12 @@ describe('HR dashboard tabs', () => {
     const { user, location } = renderApp('/dashboard')
 
     const tabs = await screen.findByRole('navigation', { name: 'Dashboard' })
-    expect(within(tabs).getAllByRole('link').map((link) => link.textContent)).toEqual(['Reports', 'Employees'])
+    expect(within(tabs).getAllByRole('link').map((link) => link.textContent)).toEqual(['Employees', 'Reports'])
+    expect(within(tabs).getByRole('link', { name: 'Employees' })).toHaveAttribute('aria-current', 'page') // the default
     await user.click(within(tabs).getByRole('link', { name: 'Reports' }))
 
     expect(location()).toBe('/dashboard/reports')
-    expect(await screen.findByRole('heading', { name: /Salary by country/ })).toBeInTheDocument()
+    expect(await screen.findByText('Choose the filters and press Go to run the reports.')).toBeInTheDocument()
     // Each view renders its own tab bar, so look it up again.
     const reportsTabs = screen.getByRole('navigation', { name: 'Dashboard' })
     expect(within(reportsTabs).getByRole('link', { name: 'Reports' })).toHaveAttribute('aria-current', 'page')
@@ -43,9 +44,43 @@ describe('HR dashboard tabs', () => {
   })
 })
 
+const RUN = '/dashboard/reports?as_of=2026-11-25'
+
 describe('reports', () => {
+  it('fetches nothing until Go, then runs all three reports once', async () => {
+    const { user, location } = renderApp('/dashboard/reports')
+
+    expect(await screen.findByText('Choose the filters and press Go to run the reports.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Spend year')).not.toBeInTheDocument()
+    await screen.findByRole('option', { name: 'India' })
+    await user.selectOptions(screen.getByLabelText('Country'), 'India')
+    await user.selectOptions(screen.getByLabelText('Type'), 'Intern')
+    fireEvent.change(screen.getByLabelText('As of'), { target: { value: '2025-06-30' } })
+    expect(searches).toEqual({ salary_stats: [], salary_by_job: [], salary_spend: [] }) // editing filters costs nothing
+
+    await user.click(screen.getByRole('button', { name: 'Go' }))
+
+    await waitFor(() => expect(location()).toBe('/dashboard/reports?country=IN&as_of=2025-06-30&type=intern'))
+    await screen.findByRole('region', { name: 'India salaries' })
+    await waitFor(() => expect(searches.salary_spend).toEqual(['country=IN&breakdown=month']))
+    expect(searches.salary_stats).toEqual(['country=IN&as_of=2025-06-30&employment_type=intern'])
+    expect(searches.salary_by_job).toEqual(['country=IN&as_of=2025-06-30&employment_type=intern'])
+    expect(screen.getByRole('heading', { name: /Salary by country · as of 30 Jun 2025/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Go' })) // same filters: refresh
+    await waitFor(() => expect(searches.salary_stats).toHaveLength(2))
+  })
+
+  it('runs straight away from a link that already has the filters', async () => {
+    renderApp('/dashboard/reports?as_of=2025-06-30&country=IN')
+
+    expect(await screen.findByRole('region', { name: 'India salaries' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Country')).toHaveValue('IN')
+    expect(screen.getByLabelText('As of')).toHaveValue('2025-06-30')
+  })
+
   it('shows salary statistics per country, in local currency', async () => {
-    renderApp('/dashboard/reports')
+    renderApp(RUN)
 
     const india = await screen.findByRole('region', { name: 'India salaries' })
     expect(india).toHaveTextContent(/Median salary.*₹14,34,500.*Average.*₹18,92,739.*Headcount.*5,702.*Lowest.*₹6,02,000.*Highest.*₹1,58,03,000/)
@@ -54,7 +89,7 @@ describe('reports', () => {
   })
 
   it('shows a job-title table per country and filters titles on the client', async () => {
-    const { user, location } = renderApp('/dashboard/reports')
+    const { user, location } = renderApp(RUN)
 
     const indiaTable = await screen.findByRole('table', { name: 'Salary by job title in India' })
     expect(within(indiaTable).getAllByRole('rowheader').map((cell) => cell.textContent)).toEqual(['Data Scientist', 'Software Engineer'])
@@ -62,7 +97,7 @@ describe('reports', () => {
     expect(screen.getByRole('table', { name: 'Salary by job title in United States' })).toHaveTextContent('$102,800')
 
     await user.type(screen.getByLabelText('Job title'), 'data')
-    await waitFor(() => expect(location()).toBe('/dashboard/reports?job=data'))
+    await waitFor(() => expect(location()).toBe(`${RUN}&job=data`))
     expect(screen.queryByRole('table', { name: /United States/ })).not.toBeInTheDocument()
     expect(searches.salary_by_job).toHaveLength(1) // filtering doesn't refetch
 
@@ -71,24 +106,8 @@ describe('reports', () => {
     expect(await screen.findByText('No job titles match “zzz”.')).toBeInTheDocument()
   })
 
-  it('sends the filters to the API and keeps them in the URL', async () => {
-    const { user, location } = renderApp('/dashboard/reports')
-
-    await screen.findByRole('option', { name: 'India' })
-    await user.selectOptions(screen.getByLabelText('Country'), 'India')
-    await user.selectOptions(screen.getByLabelText('Type'), 'Intern')
-    await user.selectOptions(screen.getByLabelText('Spend year'), '2024')
-    fireEvent.change(screen.getByLabelText('As of'), { target: { value: '2025-06-30' } })
-
-    await waitFor(() => expect(location()).toBe('/dashboard/reports?country=IN&type=intern&year=2024&as_of=2025-06-30'))
-    await waitFor(() => expect(searches.salary_stats.at(-1)).toBe('country=IN&as_of=2025-06-30&employment_type=intern'))
-    expect(searches.salary_by_job.at(-1)).toBe('country=IN&as_of=2025-06-30&employment_type=intern')
-    expect(searches.salary_spend.at(-1)).toBe('country=IN&year=2024&breakdown=month')
-    expect(screen.getByRole('heading', { name: /Salary by country · as of 30 Jun 2025/ })).toBeInTheDocument()
-  })
-
   it('charts monthly spend with a hover and focus readout, and a table view', async () => {
-    const { user } = renderApp('/dashboard/reports')
+    const { user } = renderApp(RUN)
 
     const india = await screen.findByRole('region', { name: 'India spend' })
     expect(india).toHaveTextContent(/₹164.2Cr total · 5,803 people paid/)
@@ -106,7 +125,7 @@ describe('reports', () => {
 
   it('shows an error with retry per report', async () => {
     server.use(http.get(`${API}/reports/salary_spend`, () => HttpResponse.json(apiError('internal', 'x'), { status: 500 }), { once: true }))
-    const { user } = renderApp('/dashboard/reports')
+    const { user } = renderApp(RUN)
 
     expect(await screen.findByRole('region', { name: 'India salaries' })).toBeInTheDocument() // other reports still load
     await user.click(await screen.findByRole('button', { name: 'Retry' }))

@@ -39,7 +39,8 @@ export function HireForm(props: HireFormProps) {
       <PersonSection register={register} errors={errors.person} />
       <EmploymentSection register={register} errors={errors} legalEntities={props.legalEntities}
         onLegalEntityChange={props.onLegalEntityChange} />
-      <RoleSection register={register} errors={errors.assignment} entityChosen={Boolean(props.currency)}
+      <RoleSection positionField={register('assignment.positionId')} gradeField={register('assignment.gradeId')}
+        errors={errors.assignment} entityChosen={Boolean(props.currency)}
         positions={props.positions} positionsLoading={props.positionsLoading}
         grades={props.grades} gradeRange={props.gradeRange} managerPicker={props.managerPicker} />
       <PaySection register={register} errors={errors.compensation} currency={props.currency} band={props.band}

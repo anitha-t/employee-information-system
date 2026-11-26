@@ -1,19 +1,23 @@
 import type { ReactNode } from 'react'
-import type { FieldErrors, UseFormRegister } from 'react-hook-form'
+import type { UseFormRegisterReturn } from 'react-hook-form'
 import type { Grade, Position } from '../../types/reference'
 import { SelectField } from '../ui/fields'
-import type { HireValues } from './hireSchema'
 
 interface Props {
-  register: UseFormRegister<HireValues>
-  errors: FieldErrors<HireValues>['assignment']
+  /** register('assignment.positionId') and register('assignment.gradeId') from either form. */
+  positionField: UseFormRegisterReturn
+  gradeField: UseFormRegisterReturn
+  errors?: { positionId?: { message?: string }; gradeId?: { message?: string } }
   entityChosen: boolean
   positions: Position[]
   positionsLoading: boolean
   /** Grades allowed for the chosen position's job; empty until one is chosen. */
   grades: Grade[]
   gradeRange: string | null
-  managerPicker: ReactNode
+  /** Extra hint under the grade, e.g. "Usually a promotion moves to a higher grade". */
+  gradeHint?: string
+  managerPicker?: ReactNode
+  legend?: string
 }
 
 function positionLabel(position: Position) {
@@ -21,26 +25,28 @@ function positionLabel(position: Position) {
   return `${position.name} · ${position.isRemote ? 'Remote' : position.location?.city ?? ''} · ${open}`
 }
 
+/** Position and grade, shared by the new-hire and employment-change forms. */
 export function RoleSection(props: Props) {
-  const { register, errors, entityChosen, positions, positionsLoading, grades, gradeRange, managerPicker } = props
+  const { positionField, gradeField, errors, entityChosen, positions, positionsLoading, grades, gradeRange, gradeHint, managerPicker } = props
   const positionPlaceholder = !entityChosen ? 'Choose a legal entity first' : positionsLoading ? 'Loading…' : 'Select…'
+  const rangeHint = gradeRange ? `Allowed for this job: ${gradeRange}` : undefined
 
   return (
     <fieldset className="form-section">
-      <legend>Role</legend>
+      <legend>{props.legend ?? 'Role'}</legend>
       <div className="form-grid">
         <SelectField label="Position" required placeholder={positionPlaceholder}
           disabled={!entityChosen || positionsLoading}
           options={positions.map((position) => ({ value: position.id, label: positionLabel(position) }))}
           hint={entityChosen && !positionsLoading && positions.length === 0 ? 'No open positions at this entity on the start date.' : undefined}
           error={errors?.positionId?.message}
-          {...register('assignment.positionId')} />
+          {...positionField} />
         <SelectField label="Grade" required placeholder={grades.length ? 'Select…' : 'Choose a position first'}
           disabled={grades.length === 0}
           options={grades.map((grade) => ({ value: grade.id, label: `${grade.code} · ${grade.name}` }))}
-          hint={gradeRange ? `Allowed for this job: ${gradeRange}` : undefined}
+          hint={[rangeHint, gradeHint].filter(Boolean).join('. ') || undefined}
           error={errors?.gradeId?.message}
-          {...register('assignment.gradeId')} />
+          {...gradeField} />
       </div>
       {managerPicker}
     </fieldset>

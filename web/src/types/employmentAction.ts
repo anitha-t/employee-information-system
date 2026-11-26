@@ -46,3 +46,47 @@ export interface EmploymentAction {
   }
   warnings?: string[]
 }
+
+export type ChangeType = 'salary_change' | 'promotion' | 'transfer'
+
+/** POST /employment_actions for a change to an existing employment (api-design.md §3.2). */
+export interface ChangePayload {
+  actionType: ChangeType
+  employmentId: string
+  effectiveDate: string
+  reason?: string
+  assignment?: { positionId?: string; gradeId?: string; reportsToEmploymentId?: string }
+  compensation?: { annualSalary: Money }
+}
+
+/** The assignment row an action created. */
+export interface ActionAssignment {
+  id: string
+  effectiveFrom: string
+  effectiveTo: string | null
+  position: { id: string; code: string; name: string }
+  job: { id: string; title: string }
+  team: { id: string; name: string }
+  grade: { id: string; code: string }
+  reportsTo: { employmentId: string; displayName: string } | null
+}
+
+/** The compensation row an action created. */
+export interface ActionCompensation {
+  id: string
+  effectiveFrom: string
+  effectiveTo: string | null
+  annualSalary: Money
+  payFrequency: PayFrequency
+}
+
+/** One item of GET /employment_actions. */
+export interface EmploymentActionDetail extends EmploymentAction {
+  lockVersion: number
+  reason: string | null
+  assignment: ActionAssignment | null
+  compensation: ActionCompensation | null
+  separation: { resignationDate: string | null; lastWorkingDate: string; separationType: string | null; separationReason: string | null } | null
+  createdBy: { id: string; displayName: string } | null
+  createdAt: string
+}

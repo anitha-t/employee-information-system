@@ -5,6 +5,7 @@ import { AppLayout } from './pages/AppLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { EmployeeDetailPage } from './pages/EmployeeDetailPage'
 import { EmployeeEditPage } from './pages/EmployeeEditPage'
+import { EmploymentChangePage } from './pages/EmploymentChangePage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { LoginPage } from './pages/LoginPage'
 import { NewHirePage } from './pages/NewHirePage'
@@ -45,6 +46,7 @@ export const routes: RouteObject[] = [
             { path: '/employees/new', element: <NewHirePage /> },
             { path: '/employees/:employmentId', element: <EmployeeDetailPage /> },
             { path: '/employees/:employmentId/edit', element: <EmployeeEditPage /> },
+            { path: '/employees/:employmentId/changes/new', element: <EmploymentChangePage /> },
           ],
         },
       ],

@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { HrTabs } from '../components/layout/HrTabs'
 import { CountryStatsCards } from '../components/reports/CountryStatsCards'
@@ -11,103 +11,117 @@ import { useSalaryByJob, useSalarySpend, useSalaryStats } from '../hooks/useRepo
 import { formatDate, todayIso } from '../lib/format'
 import type { JobSalaryStats } from '../types/reports'
 
-export const FIRST_REPORT_YEAR = 2016
+// Applied filters in the URL: /dashboard/reports?as_of=2026-06-30&country=IN&type=full_time&job=engineer.
+// `as_of` is written on every Go, so its presence means "the reports have been run".
+const URL_KEYS: Record<keyof ReportFilterValues, string> = { country: 'country', asOf: 'as_of', employmentType: 'type' }
 
-// URL keys: /dashboard/reports?country=IN&as_of=2026-06-30&type=full_time&year=2025&job=engineer
-const URL_KEYS: Record<keyof ReportFilterValues, string> = {
-  country: 'country', asOf: 'as_of', employmentType: 'type', year: 'year', job: 'job',
-}
-
-/** /dashboard/reports (HR): salary reports per country (docs/web-design.md §6). */
+/** /dashboard/reports (HR): salary reports per country, run on demand with Go (docs/web-design.md §6). */
 export function ReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const today = todayIso()
-  const currentYear = Number(today.slice(0, 4))
-  const values: ReportFilterValues = {
+  const applied: ReportFilterValues | null = searchParams.get(URL_KEYS.asOf) ? {
     country: searchParams.get(URL_KEYS.country) ?? '',
-    asOf: searchParams.get(URL_KEYS.asOf) || today,
+    asOf: searchParams.get(URL_KEYS.asOf) ?? '',
     employmentType: searchParams.get(URL_KEYS.employmentType) ?? '',
-    year: searchParams.get(URL_KEYS.year) || String(currentYear),
-    job: searchParams.get(URL_KEYS.job) ?? '',
-  }
-  const years = Array.from({ length: currentYear - FIRST_REPORT_YEAR + 1 }, (_, index) => currentYear - index)
+  } : null
+  const [draft, setDraft] = useState<ReportFilterValues>(() => applied ?? { country: '', asOf: todayIso(), employmentType: '' })
+  const job = searchParams.get('job') ?? ''
 
-  const statsFilters = { country: values.country || undefined, asOf: values.asOf, employmentType: values.employmentType || undefined }
+  const statsFilters = {
+    country: applied?.country || undefined, asOf: applied?.asOf, employmentType: applied?.employmentType || undefined,
+  }
   const countries = useCountries()
-  const stats = useSalaryStats(statsFilters)
-  const byJob = useSalaryByJob(statsFilters)
-  const spend = useSalarySpend({ country: values.country || undefined, year: Number(values.year) })
+  const stats = useSalaryStats(statsFilters, Boolean(applied))
+  const byJob = useSalaryByJob(statsFilters, Boolean(applied))
+  const spend = useSalarySpend({ country: applied?.country || undefined }, Boolean(applied))
 
   const countryName = useCallback(
     (isoCode: string) => countries.data?.find((country) => country.isoCode === isoCode)?.name ?? isoCode,
     [countries.data],
   )
-  const onChange = (name: keyof ReportFilterValues, value: string) => {
+
+  const go = () => {
+    const sameAsApplied = applied && (Object.keys(URL_KEYS) as (keyof ReportFilterValues)[]).every((key) => applied[key] === draft[key])
+    if (sameAsApplied) {
+      // Same filters: Go means "refresh".
+      void stats.refetch(); void byJob.refetch(); void spend.refetch()
+      return
+    }
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
-      if (value) next.set(URL_KEYS[name], value)
-      else next.delete(URL_KEYS[name])
+      for (const [key, param] of Object.entries(URL_KEYS) as [keyof ReportFilterValues, string][]) {
+        if (draft[key]) next.set(param, draft[key])
+        else next.delete(param)
+      }
       return next
-    }, { replace: name === 'job' })
+    })
   }
+  const onJobChange = (value: string) => setSearchParams((current) => {
+    const next = new URLSearchParams(current)
+    if (value) next.set('job', value)
+    else next.delete('job')
+    return next
+  }, { replace: true })
 
-  const jobRows = filterJobs(byJob.data?.data ?? [], values.job)
+  const jobRows = filterJobs(byJob.data?.data ?? [], job)
   const jobCountries = [...new Set(jobRows.map((row) => row.country))]
 
   return (
     <div className="page">
       <HrTabs />
-      <ReportFilters values={values} countries={countries.data ?? []} years={years} onChange={onChange} />
+      <ReportFilters draft={draft} countries={countries.data ?? []} onDraftChange={(name, value) => setDraft((current) => ({ ...current, [name]: value }))}
+        onGo={go} loading={stats.isFetching || byJob.isFetching || spend.isFetching} job={job} onJobChange={onJobChange} />
       <p className="muted small">Amounts are per country, in its own currency. They are never added across countries.</p>
 
-      <section className="report" aria-labelledby="stats-heading">
-        <h2 id="stats-heading">Salary by country <span className="muted">· as of {formatDate(values.asOf)}</span></h2>
-        {stats.isPending ? <ReportSkeleton /> : stats.isError ? (
-          <ErrorState message="We couldn't load salary statistics." onRetry={() => stats.refetch()} />
-        ) : (
-          <div className={stats.isPlaceholderData ? 'is-stale' : undefined}>
-            <CountryStatsCards stats={stats.data.data} countryName={countryName} />
-          </div>
-        )}
-      </section>
-
-      <section className="report" aria-labelledby="jobs-heading">
-        <h2 id="jobs-heading">Salary by job title <span className="muted">· as of {formatDate(values.asOf)}</span></h2>
-        {byJob.isPending ? <ReportSkeleton /> : byJob.isError ? (
-          <ErrorState message="We couldn't load salaries by job title." onRetry={() => byJob.refetch()} />
-        ) : jobRows.length === 0 ? (
-          <EmptyState>{values.job ? `No job titles match “${values.job}”.` : 'No one paid on this date.'}</EmptyState>
-        ) : (
-          <div className={byJob.isPlaceholderData ? 'is-stale' : undefined}>
-            {jobCountries.map((code) => (
-              <div key={code} className="report-group">
-                <h3>{countryName(code)} <span className="muted">· {jobRows.find((row) => row.country === code)?.currency}</span></h3>
-                <JobSalaryTable country={countryName(code)} rows={jobRows.filter((row) => row.country === code)} />
+      {!applied ? (
+        <EmptyState>Choose the filters and press Go to run the reports.</EmptyState>
+      ) : (
+        <>
+          <section className="report" aria-labelledby="stats-heading">
+            <h2 id="stats-heading">Salary by country <span className="muted">· as of {formatDate(applied.asOf)}</span></h2>
+            {stats.isPending ? <ReportSkeleton /> : stats.isError ? (
+              <ErrorState message="We couldn't load salary statistics." onRetry={() => stats.refetch()} />
+            ) : (
+              <div className={stats.isPlaceholderData ? 'is-stale' : undefined}>
+                <CountryStatsCards stats={stats.data.data} countryName={countryName} />
               </div>
-            ))}
-          </div>
-        )}
-      </section>
+            )}
+          </section>
 
-      <section className="report" aria-labelledby="spend-heading">
-        <h2 id="spend-heading">
-          Salary spend · {values.year}{' '}
-          {spend.data && !spend.isPlaceholderData && (
-            <span className="muted">
-              {spend.data.to
-                ? `· ${formatDate(spend.data.from)} – ${formatDate(spend.data.to)}${spend.data.partial ? ', year to date' : ''}`
-                : '· not started yet'}
-            </span>
-          )}
-        </h2>
-        {spend.isPending ? <ReportSkeleton /> : spend.isError ? (
-          <ErrorState message="We couldn't load salary spend." onRetry={() => spend.refetch()} />
-        ) : (
-          <div className={spend.isPlaceholderData ? 'is-stale' : undefined}>
-            <SpendCards year={spend.data.year} spend={spend.data.data} countryName={countryName} />
-          </div>
-        )}
-      </section>
+          <section className="report" aria-labelledby="jobs-heading">
+            <h2 id="jobs-heading">Salary by job title <span className="muted">· as of {formatDate(applied.asOf)}</span></h2>
+            {byJob.isPending ? <ReportSkeleton /> : byJob.isError ? (
+              <ErrorState message="We couldn't load salaries by job title." onRetry={() => byJob.refetch()} />
+            ) : jobRows.length === 0 ? (
+              <EmptyState>{job ? `No job titles match “${job}”.` : 'No one paid on this date.'}</EmptyState>
+            ) : (
+              <div className={byJob.isPlaceholderData ? 'is-stale' : undefined}>
+                {jobCountries.map((code) => (
+                  <div key={code} className="report-group">
+                    <h3>{countryName(code)} <span className="muted">· {jobRows.find((row) => row.country === code)?.currency}</span></h3>
+                    <JobSalaryTable country={countryName(code)} rows={jobRows.filter((row) => row.country === code)} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="report" aria-labelledby="spend-heading">
+            <h2 id="spend-heading">
+              Salary spend{spend.data ? ` · ${spend.data.year}` : ''}{' '}
+              {spend.data?.to && (
+                <span className="muted">· {formatDate(spend.data.from)} – {formatDate(spend.data.to)}{spend.data.partial ? ', year to date' : ''}</span>
+              )}
+            </h2>
+            {spend.isPending ? <ReportSkeleton /> : spend.isError ? (
+              <ErrorState message="We couldn't load salary spend." onRetry={() => spend.refetch()} />
+            ) : (
+              <div className={spend.isPlaceholderData ? 'is-stale' : undefined}>
+                <SpendCards year={spend.data.year} spend={spend.data.data} countryName={countryName} />
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   )
 }

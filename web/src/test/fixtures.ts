@@ -146,3 +146,37 @@ export const salarySpend = {
     { country: 'US', currency: 'USD', employee_count: 0, total_spend: money('0.00', 'USD'), breakdown: [] },
   ],
 }
+
+const assignmentRow = (from: string, to: string | null, positionId: string, positionName: string, grade: string, manager: string | null) => ({
+  id: `as-${from}`, effective_from: from, effective_to: to,
+  position: { id: positionId, code: positionId.toUpperCase(), name: positionName },
+  job: { id: 'job-swe', title: 'Software Engineer' }, team: { id: 't-platform', name: 'Platform' },
+  grade: { id: grade.toLowerCase(), code: grade },
+  reports_to: manager && { employment_id: 'emp-9', display_name: manager },
+})
+const compensationRow = (from: string, to: string | null, amount: string) => ({
+  id: `co-${from}`, effective_from: from, effective_to: to, annual_salary: money(amount, 'INR'), pay_frequency: 'monthly',
+})
+const actionRow = (id: string, actionType: string, date: string, extra: Record<string, unknown>) => ({
+  id, lock_version: 0, action_type: actionType, effective_date: date, reason: null,
+  employment: { id: 'emp-1', employee_number: 'E000001', status: 'active', person: { id: 'p-emp', display_name: 'Anu' } },
+  assignment: null, compensation: null, separation: null, created_by: { id: 'u-hr', display_name: 'Hema Rao' },
+  created_at: `${date}T09:00:00Z`, reviewed_by: null, review_decision: null, reviewed_at: null, ...extra,
+})
+
+/** GET /employment_actions?employment_id=emp-1, newest first. */
+export const history = {
+  data: [
+    actionRow('a3', 'promotion', '2025-04-01', {
+      reason: 'FY25 cycle',
+      assignment: assignmentRow('2025-04-01', null, 'pos-swe', 'Software Engineer, Platform (IN)', 'G2', 'Ravi Kumar'),
+      compensation: compensationRow('2025-04-01', null, '1850000.00'),
+    }),
+    actionRow('a2', 'salary_change', '2024-04-01', { compensation: compensationRow('2024-04-01', '2025-04-01', '1296000.00') }),
+    actionRow('a1', 'hire', '2023-04-03', {
+      assignment: assignmentRow('2023-04-03', '2025-04-01', 'pos-swe', 'Software Engineer, Platform (IN)', 'G1', 'Ravi Kumar'),
+      compensation: compensationRow('2023-04-03', '2024-04-01', '1200000.00'),
+    }),
+  ],
+  meta: { page: 1, per_page: 100, total_count: 3 },
+}
