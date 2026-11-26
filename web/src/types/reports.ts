@@ -38,7 +38,16 @@ export interface SpendReport {
 }
 
 export interface StatsFilters {
-  country?: string
   asOf?: string
   employmentType?: string
+}
+
+/** Report (b) also takes a job title (the API matches it exactly, ignoring case). */
+export interface JobStatsFilters extends StatsFilters {
+  jobTitle?: string
+}
+
+export interface SpendFilters {
+  year?: number
+  country?: string
 }

@@ -22,15 +22,15 @@ describe('reports API', () => {
       http.get(`${API}/reports/salary_spend`, track(salarySpend)),
     )
 
-    await expect(getSalaryStats({ country: 'IN', asOf: '2026-06-30', employmentType: 'full_time' }))
+    await expect(getSalaryStats({ asOf: '2026-06-30', employmentType: 'full_time' }))
       .resolves.toMatchObject({ asOf: '2026-11-25', data: [{ headcount: 0, median: null }, { median: { amount: '1434500.00' } }] })
-    await expect(getSalaryByJob({ asOf: '2026-06-30' })).resolves.toMatchObject({ data: expect.arrayContaining([expect.objectContaining({ jobTitle: 'Data Scientist' })]) })
-    await expect(getSalarySpend({ year: 2025 })).resolves.toMatchObject({ partial: true, data: [{ employeeCount: 5803, totalSpend: { currency: 'INR' } }, { breakdown: [] }] })
+    await expect(getSalaryByJob({ asOf: '2026-06-30', jobTitle: 'Data Scientist' })).resolves.toMatchObject({ data: expect.arrayContaining([expect.objectContaining({ jobTitle: 'Data Scientist' })]) })
+    await expect(getSalarySpend({ year: 2025, country: 'IN' })).resolves.toMatchObject({ partial: true, data: [{ employeeCount: 5803, totalSpend: { currency: 'INR' } }, { breakdown: [] }] })
 
     expect(searches).toEqual([
-      '?country=IN&as_of=2026-06-30&employment_type=full_time',
-      '?as_of=2026-06-30',
-      '?year=2025&breakdown=month',
+      '?as_of=2026-06-30&employment_type=full_time',
+      '?as_of=2026-06-30&job_title=Data+Scientist',
+      '?year=2025&country=IN&breakdown=month',
     ])
   })
 

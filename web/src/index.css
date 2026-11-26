@@ -274,8 +274,6 @@ input[readonly] { background: var(--surface-muted); color: var(--text-muted); }
 /* Reports */
 .report-filters { margin-bottom: 0.5rem; }
 .report-filters input { min-width: 160px; }
-.report { margin-top: 1.75rem; }
-.report h2 { font-size: 1.15rem; margin-bottom: 0.75rem; }
 .report h3 { font-size: 1rem; margin: 0; }
 .report-group { margin-bottom: 1.25rem; }
 .report-group > h3 { margin-bottom: 0.5rem; }
@@ -327,6 +325,8 @@ input[readonly] { background: var(--surface-muted); color: var(--text-muted); }
 .timeline-head { display: flex; justify-content: space-between; gap: 1rem; }
 .timeline-head time { color: var(--text-muted); font-size: 0.9rem; white-space: nowrap; }
 .timeline-changes { margin: 0.25rem 0; padding-left: 1.1rem; }
-.report-filters { align-items: flex-end; }
+.report-filters { align-items: flex-end; margin-bottom: 1rem; }
 .filters-go { min-width: 72px; }
-.filters-job { margin-left: auto; }
+.report.card { margin-top: 1.25rem; }
+.report .card-header h2 { margin: 0; font-size: 1.1rem; }
+.not-run { margin: 0.25rem 0 0.5rem; }

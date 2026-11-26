@@ -328,49 +328,42 @@ Employees never see the tabs. `/dashboard/reports` is HR-only, like the API.
 
 ### 6.2 Layout
 
+Three independent report sections, each a card with **its own filters and its own Go button**:
+
 ```
  [Employees] [Reports]
- Country [All ▾]  As of [2026-11-25]  Type [All ▾]  [ Go ]                Job title [filter…]
  Amounts are per country, in its own currency. They are never added across countries.
 
- Salary by country · as of 25 Nov 2026
- ┌─ India · INR ─────────────┐ ┌─ United States · USD ─────┐ ┌─ Australia · AUD ───┐
- │ Headcount 5,803           │ │ …                         │ │ …                   │
- │ Median ₹14,52,000         │ │                           │ │                     │
- │ Average ₹15,10,240        │ │                           │ │                     │
- │ Range ₹6,02,000–₹48,7…    │ │                           │ │                     │
- └───────────────────────────┘ └───────────────────────────┘ └─────────────────────┘
-
- Salary by job title · as of 25 Nov 2026
- India (INR)
- Job title             Headcount   Min      Median    Average    Max     Range
- Account Manager             512   ₹…       ₹…        ₹…         ₹…      ├──●──────┤
- …
-
- Salary spend · 2026 (1 Jan – 25 Nov, year to date)
- ┌─ India · INR ─────────────────────────────────────────────┐
- │ ₹936.2Cr total · 5,803 people paid                        │
- │ ▂▂▃▃▃▄▄▄▄▄▅  (monthly columns, hover for the amount)      │
- │ [Show table]                                              │
- └───────────────────────────────────────────────────────────┘
+ ┌ Salary by country · as of 26 Nov 2026 ───────────────────────────────────────┐
+ │ As of [2026-11-26]  Type [All ▾]  [Go]                                         │
+ │ ┌ Australia · AUD ┐ ┌ India · INR ┐ ┌ United States · USD ┐   (stat cards)     │
+ └───────────────────────────────────────────────────────────────────────────────┘
+ ┌ Salary by job title · Data Scientist, as of 26 Nov 2026 ──────────────────────┐
+ │ Job title [Data Scientist ▾]  As of [2026-11-26]  Type [All ▾]  [Go]           │
+ │ Australia · AUD   (table: headcount, lowest, median, average, highest, range)   │
+ │ India · INR       …                                                             │
+ └───────────────────────────────────────────────────────────────────────────────┘
+ ┌ Salary spend · 2025 (1 Jan 2025 – 31 Dec 2025) ────────────────────────────────┐
+ │ Year [2025 ▾]  Country [United States ▾]  [Go]                                  │
+ │ ┌ United States · USD  $345.4M total · 2,163 people paid    [Show table] ┐     │
+ │ │ (monthly columns, hover or focus for the amount)                       │     │
+ └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 6.3 Data and filters
 
-One filter row above the reports scopes all three.
-- **Reports run on demand.** Opening the tab fetches nothing and shows "Choose the filters and press Go to run the reports." Changing a filter edits a draft; only **Go** sends requests. Pressing Go again with the same filters refreshes the figures.
-- **Applied filters live in the URL** (`/dashboard/reports?as_of=…&country=…&type=…&job=…`). `as_of` is written on every Go, so a link or the back button that includes it runs the reports straight away.
-- **Job title** is the exception: it filters loaded rows on the client as you type, and costs no request.
+| Report | Filters | Endpoint | URL keys |
+|---|---|---|---|
+| Salary by country | As of, type. **No country filter**: every country is shown side by side. | `GET /reports/salary_stats?as_of=&employment_type=` | `stats_as_of`, `stats_type` |
+| Salary by job title | **Job title** (a dropdown of the titles from `GET /jobs`, with "All job titles"), as of, type | `GET /reports/salary_by_job?as_of=&employment_type=&job_title=` | `jobs_as_of`, `jobs_type`, `jobs_title` |
+| Salary spend | **Year** (2016 to this year) and **its own country filter** (or all countries) | `GET /reports/salary_spend?year=&country=&breakdown=month` | `spend_year`, `spend_country` |
 
-| Report | Endpoint | Filters used |
-|---|---|---|
-| Salary by country | `GET /reports/salary_stats?country=&as_of=&employment_type=` | country, as of, type |
-| Salary by job title | `GET /reports/salary_by_job?country=&as_of=&employment_type=` | country, as of, type. The job-title box filters rows on the client (substring, ignoring case), because the API's `job_title` matches only an exact title. |
-| Salary spend | `GET /reports/salary_spend?country=&breakdown=month` | Country only, for the current year (the API's default). "As of" and type don't apply. There is no year filter for now. |
-
-- **Defaults:** all countries, as of today, all types.
-- **Loading:** each report loads on its own. The first load shows a skeleton; a refetch keeps the previous figures on screen, dimmed. Each report has its own error message with a retry.
-- **Zero headcount:** a country card says "No one paid on this date" instead of showing blank figures. Job titles with no one paid don't appear in the API response at all.
+- **On demand:** opening the tab fetches nothing. Each section shows "Choose the filters and press Go." until it's run.
+- **Independent sections:** changing a filter only edits that section's draft. Its Go runs that one report, and pressing Go again with the same filters refreshes it. The other reports are untouched.
+- **Saved runs:** applied filters live in the URL under each section's own keys. A link or the back button reruns only the sections it includes (the first key of each section, such as `stats_as_of`, marks it as run).
+- **Job title is matched by the API**, exactly and ignoring case. The dropdown only offers real titles, so the match always works, and only that title's rows are fetched.
+- **Defaults:** as of today, all types, all job titles, the current year, all countries.
+- **States per report:** a skeleton on first load, the previous figures dimmed while refetching, its own error with a retry, and empty states ("No one paid on this date.", "No one with the title “X” was paid on this date.", "No salary paid in this period.").
 
 ### 6.4 Presentation rules (from the dataviz guidance)
 
@@ -454,7 +447,7 @@ src/
     ProfilePage          (renders MyInfo)
     NewHirePage
     ProfileEditPage, EmployeeDetailPage, EmployeeEditPage, ProfileEditor (shared editor logic)
-    ReportsPage
+    ReportsPage → reports/StatsReport, JobsReport, SpendReport
     EmploymentChangePage
     NotFoundPage, ForbiddenPage
   components/
@@ -465,7 +458,7 @@ src/
               EmploymentCard, PayCard
     profile/  ProfileForm, PersonalDetailsFields, AddressFields, EmergencyContactFields, profileSchema
     changes/  ChangeForm, changeSchema, CurrentSummary, HistoryTimeline (+ history diffs)
-    reports/  ReportFilters, CountryStatsCards, JobSalaryTable, SpendCards, MonthlySpendChart
+    reports/  ReportSection (title, filters, Go), filterControls, CountryStatsCards, JobSalaryTable, SpendCards, MonthlySpendChart
     layout/   … HrTabs (Reports | Employees)
     hire/     HireForm, PersonSection, EmploymentSection, RoleSection, PaySection, SalaryBandHint
     ui/       Button, TextField, SelectField, DateField, MoneyInput, Card, Table, Pagination,
@@ -491,8 +484,9 @@ src/
 | `useCreateHire` | — | `POST /employment_actions`. Invalidates `["employees"]` on success. |
 | `useEmployee(id)` | `["employees", "detail", id]` | `GET /employees/:id` |
 | `usePersonProfile(personId)` | `["people", personId, "profile"]` | `GET /people/:id/profile` |
-| `useSalaryStats`, `useSalaryByJob` | `["reports", "salary_stats" \| "salary_by_job", filters]` | `GET /reports/salary_stats`, `/salary_by_job` |
-| `useSalarySpend` | `["reports", "salary_spend", {country}]` | `GET /reports/salary_spend?breakdown=month` (current year). All three report hooks run only after Go. |
+| `useSalaryStats`, `useSalaryByJob` | `["reports", "salary_stats" \| "salary_by_job", filters]` | `GET /reports/salary_stats`, `/salary_by_job` (with `job_title`) |
+| `useReportFilters(urlKeys, defaults)` | — | One section's draft and applied filters (applied ones in the URL), applied with Go |
+| `useSalarySpend` | `["reports", "salary_spend", {year, country}]` | `GET /reports/salary_spend?breakdown=month`. Each report hook runs only after its section's Go. |
 | `useEmploymentHistory(id)` | `["employment_actions", id]` | `GET /employment_actions?employment_id=&per_page=100` |
 | `useCreateChange` | — | `POST /employment_actions`. Invalidates `["employees"]`, the history and `["positions"]`. |
 | `useUpdateProfile(target)` | — | `PATCH /me/profile` or `/people/:id/profile`. Caches the returned profile and invalidates `["me"]` and `["employees"]`. |

@@ -1,6 +1,6 @@
 // Every query key in one place (AGENTS.md §5).
 import type { EmployeeFilters } from '../types/employee'
-import type { StatsFilters } from '../types/reports'
+import type { JobStatsFilters, SpendFilters, StatsFilters } from '../types/reports'
 
 export const queryKeys = {
   me: ['me'] as const,
@@ -10,8 +10,8 @@ export const queryKeys = {
   employeeList: (filters: EmployeeFilters) => ['employees', 'list', filters] as const,
   employee: (employmentId: string) => ['employees', 'detail', employmentId] as const,
   salaryStats: (filters: StatsFilters) => ['reports', 'salary_stats', filters] as const,
-  salaryByJob: (filters: StatsFilters) => ['reports', 'salary_by_job', filters] as const,
-  salarySpend: (filters: { country?: string }) => ['reports', 'salary_spend', filters] as const,
+  salaryByJob: (filters: JobStatsFilters) => ['reports', 'salary_by_job', filters] as const,
+  salarySpend: (filters: SpendFilters) => ['reports', 'salary_spend', filters] as const,
   employmentHistory: (employmentId: string) => ['employment_actions', employmentId] as const,
   countries: ['countries'] as const,
   legalEntities: ['legal_entities'] as const,
