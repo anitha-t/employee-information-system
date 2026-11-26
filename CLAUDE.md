@@ -11,6 +11,8 @@ An employee and salary management system for ~10k employees (scaling to 20k+) ac
   - [docs/er-diagram.md](docs/er-diagram.md): ER diagram with columns
   - [docs/api-design.md](docs/api-design.md): endpoints, payloads, conventions
   - [docs/architecture.md](docs/architecture.md): system and request-flow diagrams, layer responsibilities
+  - [docs/web-design.md](docs/web-design.md): web app pages, components and behaviour
+  - [docs/decisions.md](docs/decisions.md): why things are the way they are (decision log). Add an entry for significant new decisions.
 
 When the schema or the API changes, update the matching doc in the same change.
 
@@ -109,11 +111,29 @@ Before finishing any change: `bundle exec rspec` and `bin/rubocop` must both pas
 - Effective-dated models include the `EffectiveDated` concern (`active_on(date)`, `current`, `open_ended`).
 - `ApplicationRecord` uses `implicit_order_column = :created_at`, because UUID keys don't sort meaningfully.
 - Model specs live in `spec/models`. Factories live in `spec/factories` (countries are reused through `find_or_initialize_by`).
-- Controllers read query-string values through `QueryParams` (`string_param`, `string_params`, `date_param`, `integer_param`), never raw `params[...]`. Arrays and hashes (`?x[]=`, `?x[a]=`) return `422 "must be a single value"` instead of a 500.
+- Controllers read query-string values through `QueryParams` (`string_param`, `string_params`, `date_param`, `integer_param`, `boolean_param`), never raw `params[...]`. Arrays and hashes (`?x[]=`, `?x[a]=`) return `422 "must be a single value"` instead of a 500.
 
 ## Known gaps (TODO)
 
-Flagged in code review on 2026-11-25, to be fixed later:
+The reasoning behind most of these is in [docs/decisions.md](docs/decisions.md) ("Still open" and the "Future work" entries). Remove an item here when it's fixed.
 
-- **TODO (#3): the "reports read `employee_snapshots_on`" rule is out of date.** The rule above says employee lists *and reports* read from `employee_snapshots_on(as_of)`. `Reports::SalarySpend` (report c) instead queries `compensations → employments → legal_entities → locations → countries` directly. It needs every compensation row overlapping the year, not one row per employment. Either reword the rule to exempt report (c), or build it on the function. `docs/domain-model.md` already describes the exemption.
-- **TODO (#4): report responses don't echo all request parameters.** The "Salary reports" rule says they return `{…params, data}`. Actually, `salary_stats` and `salary_by_job` return only `as_of`, dropping `country`, `employment_type` and `job_title`, and `salary_spend` returns `year` but not `country`. Either echo the effective filters at the top level, or relax the rule.
+**API** (flagged in code review, 2026-11-25):
+
+- **TODO (#3): the "reports read `employee_snapshots_on`" rule is out of date.**
+  - The rule above says employee lists *and reports* read from `employee_snapshots_on(as_of)`. But `Reports::SalarySpend` (report c) queries `compensations → employments → legal_entities → locations → countries` directly, because it needs every compensation row overlapping the year, not one row per employment. `docs/domain-model.md` already describes this exemption.
+  - Options and the recommendation (reword the rule to exempt report c, or build a period function) are in decisions.md **F1**. Decide there before changing the code or the rule.
+- **TODO (#4): report responses don't echo all request parameters.**
+  - The "Salary reports" rule says they return `{…params, data}`. In fact `salary_stats` and `salary_by_job` return only `as_of`, dropping `employment_type` and `job_title`. `salary_spend` returns `year` but not `country`.
+  - Either echo the effective filters at the top level, or relax the rule. The web app doesn't rely on the echo: it shows the filters it sent.
+
+**Web** (flagged in code review, 2026-11-26; see decisions.md D11):
+
+- **TODO (W1): the profile form's email check is stricter than the API's.** Zod `z.email` rejects some addresses that `URI::MailTo::EMAIL_REGEXP` accepts (e.g. `ops@intranet`). A person with such an email can't save any other profile change. Match the API's rule, or validate email only when it changed.
+- **TODO (W2): a primary emergency contact can't be unset.** The radio group has no "none" option, so the only way out is to remove the contact. Add a way to clear it, or decide that one primary is required.
+
+**Other:**
+
+- **TODO: AGENTS.md `TODO(team)` items are unconfirmed.** The error shape, UUID ids, pagination and the CSRF header are answered in `docs/web-design.md` §9, but a person needs to confirm them in AGENTS.md.
+- **TODO: employment actions not yet in the web app.** These are manager change and regrade as their own tabs, correcting a past action (`PATCH /employment_actions/:id`), separation, and the reviewer fields. The reviewer fields need an endpoint that lists HR users. See decisions.md D16.
+- **TODO: bundle size.** The web bundle is ~156 KB gzipped and trips Vite's 500 KB (minified) warning. Split routes (e.g. lazy-load the hire, change and reports pages) when it matters.
+- **TODO: brand wording.** The logo reads "Employee Information" while the browser title is "Employee Information System". Pick one.
