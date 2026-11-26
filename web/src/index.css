@@ -330,3 +330,20 @@ input[readonly] { background: var(--surface-muted); color: var(--text-muted); }
 .report.card { margin-top: 1.25rem; }
 .report .card-header h2 { margin: 0; font-size: 1.1rem; }
 .not-run { margin: 0.25rem 0 0.5rem; }
+
+/* Logo: full artwork in light mode; icon + text in dark mode (the artwork's navy text vanishes there) */
+.logo { display: inline-flex; align-items: center; }
+.logo img { display: block; width: auto; }
+.logo-medium .logo-light { height: 36px; }
+.logo-large .logo-light { height: 52px; }
+.logo-dark { display: none; align-items: center; gap: 0.5rem; font-weight: 800; color: var(--text); letter-spacing: -0.01em; }
+.logo-medium .logo-dark img { height: 30px; }
+.logo-large .logo-dark img { height: 44px; }
+.logo-medium .logo-dark span { font-size: 1.05rem; }
+.logo-large .logo-dark span { font-size: 1.4rem; line-height: 1.1; }
+@media (prefers-color-scheme: dark) {
+  .logo-light { display: none !important; }
+  .logo-dark { display: inline-flex; }
+}
+.app-header .brand { display: inline-flex; }
+.auth-logo { margin: 0 0 1.5rem; display: flex; justify-content: center; }
